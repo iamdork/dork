@@ -31,7 +31,7 @@ class Environment {
   /// The directory containing all ansible roles to be checked for project
   /// compatibility.
   List<String> get ansibleRolesDirectory {
-    return this._env('ROLES', '/opt/dork/ansible/roles:/opt/roles').split(':');
+    return this._env('ROLES', '/etc/ansible/roles:/opt/roles').split(':');
   }
 
   /// The directory inside a dork where sources are mounted.
