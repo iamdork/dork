@@ -101,7 +101,7 @@ abstract class Ansible implements RawAnsible {
 
     List<String> remove = [];
     recurseExcludes(String key) {
-      if (!available.containsKey(key)) {
+      if (!available.containsKey(key) || !available[key].containsKey(key)) {
         return;
       }
       available[key]['includes'].forEach((includes) {

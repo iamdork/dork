@@ -63,6 +63,7 @@ class Cli {
     parser.addCommand('start');
     parser.addCommand('status');
     parser.addCommand('update');
+    parser.addCommand('commit');
     parser.addCommand('provision');
     parser.addCommand('stop');
     parser.addCommand('remove');
@@ -116,6 +117,12 @@ class Cli {
       await dork.create();
       await dork.start();
       await dork.update();
+    }
+
+    if (results.command.name == 'commit') {
+      await dork.create();
+      await dork.start();
+      await dork.freeze();
     }
 
     if (results.command.name == 'provision') {

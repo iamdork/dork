@@ -14,7 +14,8 @@ class Repository {
   Future<bool> isAncestor(String a, String b) => git._isAncestor(this.dir, a, b);
   Future<List<String>> mergedCommits(String a, String b) => git._mergedCommits(this.dir, a, b);
   Future<List<String>> changedFiles(String a, String b) => git._changedFiles(this.dir, a, b);
-  Future<String> closestAncestor(List<String> commits) => git._closestAncestor(this.dir, commits);
+  Future<Map<String, int>> distances(Map<String, String> hashes) => git._distances(this.dir, hashes);
+  Future<String> closestAncestor(Map<String, String> hashes) => git._closestAncestor(this.dir, hashes);
 }
 
 /// Simple shell-based implementation of the [Git] interface.
@@ -47,17 +48,19 @@ class RawGit extends Service {
 }
 
 abstract class Git implements RawGit {
-  Future<String> _closestAncestor(Directory dir, List<String> commits) async {
+  Future<Map<String, int>> _distances(Directory dir, Map<String, String> hashes) async {
     String commit = (await this.getRepository(dir)).commit;
     Map<String, int> distances = {};
-    List<String> ancestors = [];
-    await Future.forEach(commits, (String c) async {
-      if (await this._isAncestor(dir, c, commit)) {
-        List<String> merged = await this._mergedCommits(dir, c, commit);
-        distances[c] = merged.length;
-        ancestors.add(c);
-      }
+    await Future.forEach(hashes.keys, (String key) async {
+      List<String> merged = await this._mergedCommits(dir, hashes[key], commit);
+      distances[key] = merged.length;
     });
+    return distances;
+  }
+
+  Future<String> _closestAncestor(Directory dir, Map<String, String> hashes) async {
+    Map<String, int> distances = await this._distances(dir, hashes);
+    List<String> ancestors = new List<String>.from(distances.keys);
     if (ancestors.length > 0) {
       ancestors.sort((String a, String b) => distances[a] - distances[b]);
       return ancestors.first;

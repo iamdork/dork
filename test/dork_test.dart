@@ -47,7 +47,7 @@ class LifecycleTestCase extends MockTestRunner {
     this.ws.roles = {
       'html': {
         'matches': 'index.html',
-        'tags': { '*.html': ['cache'] }
+        'tags': [{ '*.html': ['cache'] }]
       }
     };
     await this.dork.initialize();
@@ -165,6 +165,10 @@ class ReuseImageTestCase extends MockTestRunner {
       ..branch = 'master'
       ..hash = 2;
 
+    MockCommit commit_c = new MockCommit()
+      ..branch = 'master'
+      ..hash = 3;
+
     MockImage image = new MockImage() ..commit = commit_b;
 
     this.ws.projects.add(new MockProject()
@@ -173,15 +177,18 @@ class ReuseImageTestCase extends MockTestRunner {
       ..addInstance(new MockInstance()
         ..commits.add(commit_a)
         ..commits.add(commit_b)
+        ..commits.add(commit_c)
       )
     );
     await this.dork.initialize();
   }
 
-  @Test('clean after create')
+  @Test('dirty after create, clean after update')
   cleanAfterInitialize() async {
     await this.dork.create();
     await this.dork.start();
+    expect(this.dork.state, State.DIRTY);
+    await this.dork.update();
     expect(this.dork.state, State.CLEAN);
   }
 }

@@ -213,9 +213,9 @@ class Dork {
     containers.retainWhere((Container c) => c.project == this.project && c.instance == this.instance);
 
     if (containers.length > 0) {
-      List<String> hashes = [];
+      Map<String, String> hashes = {};
       containers.forEach((Container c) {
-        hashes.add(c.name.split('.').last);
+        hashes[c.hash] = c.hash;
       });
 
       this._container = containers.firstWhere((Container c) {
@@ -264,20 +264,47 @@ class Dork {
     if (this._container != null) return null;
 
     String image = this.env.baseImage;
-
-    List<String> hashes = [];
-    List<Image> images = await this.docker.getImages();
-    images.retainWhere((Image i) => i.project == this.project);
-    images.forEach((Image i) => hashes.add(i.hash));
-
-    String ancestor = null;
     String name = Container.naming(this.project, this.instance, 'new');
-    if (hashes.length > 0) {
-      ancestor = await this.repository.closestAncestor(hashes);
-      if (ancestor != null) {
-        image = Image.naming(this.project, ancestor);
-        name = Container.naming(this.project, this.instance, ancestor);
+
+    Map<String, String> container_hashes = {};
+    List<Container> containers = await this.docker.getContainers();
+    containers.where((Container c) => c.project == this.project).forEach((Container c) {
+      container_hashes[c.name] = c.hash;
+    });
+
+    Map<String, String> image_hashes = {};
+    List<Image> images = await this.docker.getImages();
+    images.where((Image i) => i.project == this.project).forEach((Image i) {
+      image_hashes[i.name] = i.hash;
+    });
+
+    String closest_container = await this.repository.closestAncestor(container_hashes);
+    String closest_image = await this.repository.closestAncestor(image_hashes);
+
+    if (closest_image != null) image = closest_image;
+
+    if (closest_container != null) {
+      bool new_commit = true;
+
+      if (closest_image != null) {
+        Map<String, int> dist = await this.repository.distances({
+          'container': closest_container.split('.').last,
+          'image': closest_image.split('/').last,
+        });
+        new_commit = dist['image'] < dist['container'];
       }
+
+      if (new_commit) {
+        image = Image.naming(this.project, container_hashes[closest_container]);
+        await this.docker.commit(containers.firstWhere((Container c) => c.name == closest_container).id, image);
+      }
+      else {
+        image = closest_image;
+      }
+    }
+
+    if (image != this.env.baseImage) {
+      name = Container.naming(this.project, this.instance, image.split('/').last);
     }
 
     Map<String, String> volumes = {
@@ -285,7 +312,7 @@ class Dork {
       "${this.env.buildDirectory}/${this.project}/${this.instance}": this.env.dorkBuildDirectory,
     };
 
-    await this.docker.create(name, image, volumes);
+    await this.docker.create(name , image, volumes);
 
     await this.initialize();
   }
@@ -397,8 +424,6 @@ class Dork {
       await this.ansible.play(playbook, inventory, tags);
     }
 
-    // Commit the current container with the commit as image tag.
-    await this.docker.commit(this.container.id, "${this.project}/${this.repository.commit}");
 
     if (this.container.hash != this.repository.commit) {
       await this.docker.rename(this.container.id, this.containerName);
@@ -461,6 +486,13 @@ class Dork {
     await this.docker.updateHosts();
   }
 
+  Future freeze() {
+    if (!this.state == State.CLEAN) {
+      throw new StateError('Only running and clean containers can be commited.');
+    }
+    return this.docker.commit(this.container.id, "${this.project}/${this.repository.commit}");
+  }
+
   /// Removes this [Dork].
   ///
   /// Deletes the Docker container and removes associated data from internal
@@ -469,12 +501,17 @@ class Dork {
     List<Container> containers = await this.docker.getContainers();
     containers.retainWhere((Container c) => c.project == this.project && c.instance == this.instance);
     await Future.forEach(containers, (Container c) async => await this.docker.remove(c.id));
+
     if (this.mode == Mode.WORKSTATION) {
       List<Image> images = await this.docker.getImages();
       images.retainWhere((Image i) => i.project == this.project);
       await Future.forEach(images, (Image i) async => await this.docker.removeImage(i.id));
     }
-    await Future.forEach(await this.docker.getDanglingImages(), (String id) async => await this.docker.removeImage(id));
+
+    List<String> dangling = await this.docker.getDanglingImages();
+    if (dangling != null) {
+      await Future.forEach(await this.docker.getDanglingImages(), (String id) async => await this.docker.removeImage(id));
+    }
     await this.initialize();
     await this.docker.updateHosts();
   }

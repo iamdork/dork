@@ -91,7 +91,7 @@ class GitTestRunner extends MockTestRunner {
   mergedCommits() async => expect(await ancestors.mergedCommits('2', '4'), unorderedEquals(['3', '4']));
 
   @Test('closest ancestor among [3, 1, 2]')
-  closestAncestor () async => expect(await ancestors.closestAncestor(['3', '1']), '3');
+  closestAncestor () async => expect(await ancestors.closestAncestor({'3': '3', '1': '1'}), '3');
 
   @Test('changed files of one commit')
   changedFilesSingle() async => expect(await ancestors.changedFiles('4', '5'), unorderedEquals(['index.php']));
@@ -156,11 +156,11 @@ class AnsibleTestRunner extends MockTestRunner {
       },
       'compass': {
         'matches': '**config.rb',
-        'tags': {
-          '**.scss': ['compass', 'cache'],
-          '**.sass': ['compass', 'cache'],
-          '**.jpg': ['cache'],
-        },
+        'tags': [
+          { '**.scss': ['compass', 'cache'] },
+          { '**.sass': ['compass', 'cache'] },
+          { '**.jpg': ['cache'] },
+        ],
       },
     };
   }
