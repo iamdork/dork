@@ -287,11 +287,16 @@ class Dork {
       bool new_commit = true;
 
       if (closest_image != null) {
-        Map<String, int> dist = await this.repository.distances({
-          'container': closest_container.split('.').last,
-          'image': closest_image.split('/').last,
-        });
-        new_commit = dist['image'] < dist['container'];
+        if (closest_container.split('.').last == 'new') {
+          new_commit = false;
+        }
+        else {
+          Map<String, int> dist = await this.repository.distances({
+            'container': closest_container.split('.').last,
+            'image': closest_image.split('/').last,
+          });
+          new_commit = dist['image'] < dist['container'];
+        }
       }
 
       if (new_commit) {
@@ -487,7 +492,7 @@ class Dork {
   }
 
   Future freeze() {
-    if (!this.state == State.CLEAN) {
+    if (this.state != State.CLEAN) {
       throw new StateError('Only running and clean containers can be commited.');
     }
     return this.docker.commit(this.container.id, "${this.project}/${this.repository.commit}");
