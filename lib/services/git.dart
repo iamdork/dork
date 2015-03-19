@@ -52,8 +52,10 @@ abstract class Git implements RawGit {
     String commit = (await this.getRepository(dir)).commit;
     Map<String, int> distances = {};
     await Future.forEach(hashes.keys, (String key) async {
-      List<String> merged = await this._mergedCommits(dir, hashes[key], commit);
-      distances[key] = merged.length;
+      if (hashes[key] == commit || await this._isAncestor(dir, hashes[key], commit)) {
+        List<String> merged = await this._mergedCommits(dir, hashes[key], commit);
+        distances[key] = merged.length;
+      }
     });
     return distances;
   }
