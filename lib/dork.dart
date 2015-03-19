@@ -215,7 +215,7 @@ class Dork {
     if (containers.length > 0) {
       Map<String, String> hashes = {};
       containers.forEach((Container c) {
-        hashes[c.hash] = c.hash;
+        hashes[c.name.split('.').last] = c.name.split('.').last;
       });
 
       this._container = containers.firstWhere((Container c) {
