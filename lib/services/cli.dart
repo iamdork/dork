@@ -51,6 +51,14 @@ class Cli {
   }
 
   Future run(List<String> arguments) async {
+
+    if (arguments.length == 1 && arguments[0] == '--list') {
+      Dork dork = this._injector.get(Dork) as Dork;
+      await dork.initialize();
+      if (dork.address != null) print('{ "${dork.domain}": ${dork.address} }');
+      return null;
+    }
+
     ArgParser parser = new ArgParser();
     parser.addCommand('start');
     parser.addCommand('status');
@@ -60,11 +68,6 @@ class Cli {
     parser.addCommand('remove');
     parser.addCommand('boot');
     ArgResults results = parser.parse(arguments);
-
-    if (arguments.length == 0) {
-      print('Please choose a command:\n dork [start|stop|status|update|provision|remove|boot]');
-      return null;
-    }
 
     if (results.command == null) {
       print('Unknown command ${arguments[0]}.');
