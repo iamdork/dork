@@ -55,7 +55,7 @@ class Cli {
     if (arguments.length == 1 && arguments[0] == '--list') {
       Dork dork = this._injector.get(Dork) as Dork;
       await dork.initialize();
-      if (dork.address != null) print('{ "${dork.domain}": ${dork.address} }');
+      if (dork.address != null) print('{ "${dork.domain}": ["${dork.address}"] }');
       return null;
     }
 
