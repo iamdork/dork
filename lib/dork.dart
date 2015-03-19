@@ -415,7 +415,7 @@ class Dork {
     // Initially empty, only set tags if container is not running on base image
     // in this case, the whole provisioning has to run.
     List<String> tags = [];
-    if (this.container.hash != 'new') {
+    if (this.container.hash != null) {
       tags = await this.ansible.matchingTags(changed);
     }
 
@@ -434,6 +434,9 @@ class Dork {
       await this.docker.rename(this.container.id, this.containerName);
       await this.docker.stop(this.container.id);
       await this.docker.start(this.container.id);
+      if (this.container.hash == null) {
+        await this.docker.commit(this.container.id, this.imageName);
+      }
     }
     await this.initialize();
 
