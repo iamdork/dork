@@ -351,6 +351,7 @@ class Dork {
         await new Future.delayed(new Duration(milliseconds: 500));
       }
     }
+    await (new Future.delayed(new Duration(seconds: 2)));
     await this.docker.updateHosts();
   }
 
