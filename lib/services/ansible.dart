@@ -51,7 +51,7 @@ class RawAnsible extends Service {
     await tempInventory.writeAsString(inventory);
     List<String> args = ['-s', '-i', '.tempInventory', '.tempPlaybook'];
     if (tags != null && tags.length > 0) {
-      args..add('--tags')..add('"${tags.join(',')}"');
+      args..add('--tags')..add(tags.join(','));
     }
     List<String> output = await this.run('ansible-playbook', args);
     await tempPlaybook.delete();
