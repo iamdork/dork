@@ -17,12 +17,13 @@ class RawAnsible extends Service {
 
   Future<Map<String, Map>> getRoles() async {
     Map<String, Map> roles = {};
-    await Future.forEach(this.env.ansibleRolesDirectory, (d) {
+    await Future.forEach(this.env.ansibleRolesDirectory, (d) async {
       Directory dir = new Directory(d);
-      dir.listSync().forEach((FileSystemEntity child) {
+      await Future.forEach(dir.listSync(), (FileSystemEntity child) async {
         String name = child.path.split('/').last;
         if (name.startsWith('.')) return;
         File yamlfile = new File("${dir.path}/${name}/meta/main.yml");
+        if (!(await yamlfile.exists())) return;
         String fc = yamlfile.readAsStringSync();
         dynamic yaml = loadYaml(fc);
         dynamic content = JSON.decode(JSON.encode(yaml));
