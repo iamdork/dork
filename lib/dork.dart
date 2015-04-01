@@ -485,6 +485,7 @@ class Dork {
         String subdir = dir.replaceAll(this.project + '/', '');
         if (subdir == branch) {
           // Server mode, remove container and source directory.
+          await this.docker.stop(c.id);
           await this.docker.remove(c.id);
           await this.fs.remove(c.workDirectory);
         }
