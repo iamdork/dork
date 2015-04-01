@@ -295,7 +295,7 @@ class Dork {
             'container': closest_container.split('.').last,
             'image': closest_image.split('/').last,
           });
-          new_commit = dist['image'] < dist['container'];
+          new_commit = dist['image'] > dist['container'];
         }
       }
 
