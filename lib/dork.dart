@@ -459,11 +459,10 @@ class Dork {
     // Fill the matrix.
     await Future.forEach(containers, (Container a) async {
       if (a.hash == null) return;
-      Repository repo = await this.git.getRepository(new Directory(a.workDirectory));
 
       await Future.forEach(containers, (Container b) async {
         if (b.hash == null || b.hash == a.hash) return;
-        if (await repo.isAncestor(a.hash, b.hash)) {
+        if (await this.repository.isAncestor(a.hash, b.hash)) {
           ancestorOf[a.hash].add(b.hash);
           descendantOf[b.hash].add(a.hash);
         }
