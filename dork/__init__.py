@@ -1,6 +1,9 @@
 import argparse
 import os
 import config
+import tabulate
+from dork import Dork, Mode, State, Status
+from git import Commit
 
 def main():
     """Dork CLI interface"""
@@ -25,8 +28,53 @@ def main():
         help='Display a summary of the dorks status.')
 
     def func_status(params):
-        print('Status!!!')
-        print(params)
+        dorks = [do for do in Dork.scan(params.working_directory)]
+        if len(dorks) == 1:
+            d = dorks[0]
+            data = [
+                ['Project', d.project],
+                ['Instance', d.instance],
+                ['Roles', ', '.join([
+                    "%s (%s)" % (role.name, ', '.join(patterns))
+                    for role, patterns in d.roles.iteritems()])],
+                ['Repository', d.repository.directory],
+                ['Repository commit', d.repository.current_commit.message],
+                ['Mode', d.mode],
+                ['State', d.state],
+                ['Status', d.status],
+            ]
+            if d.status == Status.DIRTY:
+                current = d.repository.current_commit
+                commit = Commit(d.container.hash, d.repository)
+                data.append(['Container commit', commit.message])
+                data.append(['Update distance', len(current - commit)])
+                tags = [t for t in d.tags]
+                if len(tags) > 0:
+                    data.append(['Update tags', ', '.join(d.tags)])
+                else:
+                    data.append(['Update tags', 'None'])
+
+            print(tabulate.tabulate(data, tablefmt="plain"))
+        else:
+            headers = [
+                'Name',
+                'Directory'
+                'Status',
+                'State',
+                'Mode',
+            ]
+            rows = []
+            directory = params.working_directory
+            for d in Dork.scan(directory):
+                rows.append([
+                    d.name,
+                    d.repository.directory,
+                    d.status,
+                    d.state,
+                    d.mode
+                ])
+            print(tabulate.tabulate(rows, headers, tablefmt='fancy_grid'))
+
 
     cmd_status.set_defaults(func=func_status)
 

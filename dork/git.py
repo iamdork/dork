@@ -1,4 +1,4 @@
-from subprocess import call, check_output
+from subprocess import call, check_output, PIPE
 from glob import glob
 
 
@@ -136,7 +136,7 @@ def _is_repository(directory):
     :param directory:
     :return:
     """
-    return call(['git', 'rev-parse'], cwd=directory) is 0
+    return call(['git', 'rev-parse'], cwd=directory, stderr=PIPE, stdout=PIPE) is 0
 
 
 def _current_commit(directory):
@@ -165,7 +165,7 @@ def _commit_message(directory, commit):
     :rtype: str
     """
     return check_output(
-        ['git', 'log', '--format=%B', '-n', 1, commit]
+        ['git', 'log', '--format=%B', '-n', '1', commit]
         , cwd=directory).strip()
 
 

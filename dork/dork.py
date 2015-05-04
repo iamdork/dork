@@ -4,20 +4,25 @@ from docker import Container, Image, BaseImage
 from matcher import Role
 import runner
 import logging
-import enum
+from enum import Enum
 import shutil
 
 
-class State(enum.Enum):
-    REPOSITORY, IMAGE, CONTAINER, RUNNING = range(4)
+class State(Enum):
+    REPOSITORY = 1
+    IMAGE = 2
+    CONTAINER = 3
+    RUNNING = 4
 
+class Status(Enum):
+    NEW = 1
+    DIRTY = 2
+    CLEAN = 3
 
-class Status(enum.Enum):
-    NEW, DIRTY, CLEAN = range(3)
-
-
-class Mode(enum.Enum):
-    WORKSTATION, SERVER, MANUAL = range(3)
+class Mode(Enum):
+    WORKSTATION = 1
+    SERVER = 2
+    MANUAL = 3
 
 
 class Dork:
@@ -95,6 +100,13 @@ class Dork:
     def instance(self):
         return self.__segments[-1]
 
+    @property
+    def name(self):
+        if self.project == self.instance:
+            return self.project
+        else:
+            return "%s.%s" % (self.project, self.instance)
+
     # ======================================================================
     # STATUS PROPERTIES
     # ======================================================================
@@ -150,7 +162,7 @@ class Dork:
 
         :rtype: list[str]
         """
-        for role, patterns in self.roles:
+        for role, patterns in self.roles.iteritems():
             commit = Commit(self.container.hash, self.repository)
             tags = role.matching_tags(self.repository.current_commit % commit)
             for tag in tags:
@@ -543,7 +555,7 @@ class Dork:
     # LOGGING
     # ======================================================================
     def _log(self, msg):
-        return "[%s.%s] %s" % (self.project, self.instance, msg)
+        return "[%s] %s" % (self.name, msg)
 
     def debug(self, msg, *args):
         logging.debug(self._log(msg), *args)

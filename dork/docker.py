@@ -262,13 +262,16 @@ class BaseImage:
 # PUBLIC METHODS
 # ======================================================================
 def containers():
-    for c in __get('containers/json', query={all: 1}):
+    for c in __get('containers/json', query={'all': 1}):
         yield Container(__get('containers/%s/json' % c['Id']))
 
 
 def images():
     for i in __get('images/json'):
-        yield Image(__get('images/%s/json' % i['Id']))
+        data = __get('images/%s/json' % i['Id'])
+        if 'RepoTags' in i:
+            data['RepoTags'] = i['RepoTags']
+            yield Image(data)
 
 
 def create(name, image, volumes):
