@@ -2,12 +2,14 @@ import subprocess
 import os
 import tempfile
 import json
+from config import config
 
 
 def apply_roles(roles, ip, extra_vars=None, tags=None, skip=None):
     # Create the temporary inventory
     inventory = tempfile.NamedTemporaryFile(delete=False)
-    inventory.write(ip + '\n')
+    inventory.write("%s ansible_ssh_user=%s dork_user=%s ansible_sudo=yes ansible_sudo_user=root" % (
+        ip, config().dork_user, config().dork_user) + '\n')
     inventory.close()
 
     # Create the temporary playbook

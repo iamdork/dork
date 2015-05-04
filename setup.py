@@ -76,7 +76,7 @@ setup(
         'paramiko',
         'enum34',
         'py-dateutil',
-        'tabulate',
+        'terminaltables',
     ],
 
     # List additional groups of dependencies here (e.g. development

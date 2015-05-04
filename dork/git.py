@@ -176,7 +176,11 @@ def _is_ancestor(directory, ancestor, descendant):
     :type descendant: str
     :rtype: bool
     """
-    if ancestor is descendant:
+    if ancestor == descendant:
+        return False
+    elif ancestor == "new":
+        return True
+    elif descendant == "new":
         return False
     else:
         return call(

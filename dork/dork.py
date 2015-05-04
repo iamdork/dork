@@ -2,10 +2,12 @@ import config
 from git import Repository, Commit
 from docker import Container, Image, BaseImage
 from matcher import Role
+import dns
 import runner
 import logging
 from enum import Enum
 import shutil
+import colorclass
 
 
 class State(Enum):
@@ -14,15 +16,50 @@ class State(Enum):
     CONTAINER = 3
     RUNNING = 4
 
+    def __str__(self):
+        return self.name
+
+    def colored(self):
+        colors = {
+            1: 'autored',
+            2: 'autoblack',
+            3: 'autowhite',
+            4: 'autogreen',
+        }
+        c = colors[self.value]
+        return colorclass.Color("{%s}%s{/%s}" % (c, self.name, c))
+
 class Status(Enum):
     NEW = 1
     DIRTY = 2
     CLEAN = 3
+    def __str__(self):
+        return self.name
+
+    def colored(self):
+        colors = {
+            1: 'autoblack',
+            2: 'autored',
+            3: 'autogreen',
+        }
+        c = colors[self.value]
+        return colorclass.Color("{%s}%s{/%s}" % (c, self.name, c))
 
 class Mode(Enum):
     WORKSTATION = 1
     SERVER = 2
     MANUAL = 3
+    def __str__(self):
+        return self.name
+
+    def colored(self):
+        colors = {
+            1: 'autoyellow',
+            2: 'autored',
+            3: 'autogreen',
+        }
+        c = colors[self.value]
+        return colorclass.Color("{%s}%s{/%s}" % (c, self.name, c))
 
 
 class Dork:
@@ -69,7 +106,7 @@ class Dork:
         """
         Retrieve the closest matching container.
 
-        :rtype: docker.Container
+        :rtype: Container
         """
         return self.__closest([
             c for c in Container.list()
@@ -82,7 +119,7 @@ class Dork:
         """
         Retrieve the closes matching image.
 
-        :rtype: docker.Image
+        :rtype: Image
         """
         return self.__closest([
             i for i in Image.list()
@@ -123,9 +160,9 @@ class Dork:
 
     @property
     def state(self):
-        if not self.image:
+        if not self.image and not self.container:
             return State.REPOSITORY
-        if not self.container:
+        if not self.container and self.image:
             return State.IMAGE
         if not self.container.running:
             return State.CONTAINER
@@ -197,7 +234,7 @@ class Dork:
         ])
         """:type: Container"""
 
-        image_name = "%s/%s" % (self.project, container.hash)
+
         if image and container:
             # If both image and container exist, check if the container is newer
             # and commit if necessary.
@@ -205,6 +242,7 @@ class Dork:
             commit_container = Commit(container.hash, self.repository)
             commit_image = Commit(image.hash, self.repository)
             if commit_image.hash == 'new' or commit_container > commit_image:
+                image_name = "%s/%s" % (self.project, container.hash)
                 self.debug("%s is newer than %s", container, image)
                 self.info("Committing new image %s.", image_name)
                 container.commit(image_name)
@@ -215,6 +253,7 @@ class Dork:
         elif container:
             # Only a compatible container exists, commit it to create an image.
             self.info("No image found, committing %s.", container)
+            image_name = "%s/%s" % (self.project, container.hash)
             container.commit(image_name)
             image = self.image
         elif image:
@@ -279,6 +318,7 @@ class Dork:
 
         # Start the container.
         self.container.start()
+        dns.refresh()
         self.info("Successfully started container.")
         return True
 
@@ -303,6 +343,7 @@ class Dork:
 
         # Stop the container
         self.container.stop()
+        dns.refresh()
         self.info("Successfully stopped container.")
         return True
 
@@ -346,8 +387,11 @@ class Dork:
 
         # If there are any tags, run the update.
         if tags or self.status == Status.NEW:
-            self.__play(tags)
-            self.info("Update successful.")
+            if self.__play(tags):
+                self.info("Update successful.")
+            else:
+                self.err("Update failed.")
+                return False
         else:
             self.warn("No tags found, update not necessary.")
 
@@ -404,10 +448,10 @@ class Dork:
             skip_tags += [p for p in role.patterns.keys() if p not in patterns]
         self.debug("Skipping tags: %s", skip_tags)
 
-        runner.apply_roles(
+        return runner.apply_roles(
             [role.name for role in self.roles],
             self.container.address,
-            extra_vars, tags, skip_tags)
+            extra_vars, tags, skip_tags) == 0
 
     def clean(self):
         """

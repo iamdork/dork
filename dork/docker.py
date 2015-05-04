@@ -10,9 +10,6 @@ from subprocess import check_output
 from datetime import datetime
 from dateutil.parser import parse as parse_date
 
-_date_format = '%Y-%m-%dT%H:%M:%S.%f%z'
-
-
 class Container:
     """
     Class representing a container, providing the necessary information and
@@ -69,7 +66,7 @@ class Container:
 
         :rtype: str
         """
-        return self.name.split('.')[0]
+        return self.name.split('.')[0].strip('/')
 
     @property
     def instance(self):
@@ -255,6 +252,7 @@ class Image:
 class BaseImage:
     def __init__(self, project):
         self.project = project
+        self.name = config().base_image
         self.hash = 'new'
 
 
@@ -374,9 +372,14 @@ def __get(path, query=(), codes=(200,)):
 
 def __post(path, query=(), data=(), codes=(200,)):
 
-    result = requests.post(
-        "%s/%s" % (config().docker_address, path),
-        params=query, data=data)
+    if data:
+        result = requests.post(
+            "%s/%s" % (config().docker_address, path),
+            params=query, json=data)
+    else:
+        result = requests.post(
+            "%s/%s" % (config().docker_address, path),
+            params=query)
 
     if result.status_code not in codes:
         raise DockerException(result.status_code, result.text)
