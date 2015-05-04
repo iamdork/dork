@@ -1,4 +1,20 @@
 from subprocess import call, check_output
+from glob import glob
+
+
+def get_repositories(directory):
+    """
+    Returns a <Repository> object or <None> if no repository was found.
+    :param: directory: str
+    :rtype: list[Repository]
+    """
+    if _is_repository(directory):
+        yield Repository(directory)
+    else:
+        repositories = [subdir[:-5] for subdir in glob(directory + '/**/.git')]
+        for d in repositories:
+            if not any([(d in r and d is not r) for r in repositories]):
+                yield Repository(d)
 
 
 class Commit:
@@ -7,15 +23,13 @@ class Commit:
     <, > , <= and >= check if commits are valid ascendants/descendants of
     each other.
     """
-    def __init__(self, commit_hash, repository, git):
+    def __init__(self, commit_hash, repository):
         """
         :type commit_hash: str
         :type repository: Repository
-        :type git: Git
         """
         self.__hash = commit_hash
         self.__directory = repository.directory
-        self.__git = git
         self.__repo = repository
         pass
 
@@ -31,14 +45,14 @@ class Commit:
         :type other: Commit
         :rtype: bool
         """
-        return self.__git.is_ancestor(self.__directory, self.__hash, other.__hash)
+        return _is_ancestor(self.__directory, self.__hash, other.__hash)
 
     def __gt__(self, other):
         """
         :type other: Commit
         :rtype: bool
         """
-        return self.__git.is_ancestor(self.__directory, other.__hash, self.__hash)
+        return _is_ancestor(self.__directory, other.__hash, self.__hash)
 
     def __le__(self, other):
         """
@@ -59,14 +73,14 @@ class Commit:
         :type other: Commit
         :rtype: list
         """
-        return self.__git.commit_diff(self.__directory, self.__hash, other.__hash)
+        return _commit_diff(self.__directory, self.__hash, other.__hash)
 
     def __mod__(self, other):
         """
         :type other: Commit
         :rtype: list
         """
-        return self.__git.file_diff(self.__directory, self.__hash, other.__hash)
+        return _file_diff(self.__directory, self.__hash, other.__hash)
 
     @property
     def hash(self):
@@ -76,37 +90,37 @@ class Commit:
     @property
     def message(self):
         """:rtype: str"""
-        return self.__git.commit_message(self.__directory, self.__hash)
+        return _commit_message(self.__directory, self.__hash)
 
 
 class Repository:
 
-    def __init__(self, directory, git):
+    def __init__(self, directory):
         """
         :type directory: str
-        :type git: Git
         """
         self.__directory = directory
-        self.__git = git
+
+    @classmethod
+    def scan(cls, directory):
+        return get_repositories(directory)
 
     @property
-    def commit(self):
+    def current_commit(self):
         """
         :rtype: Commit
         """
-        return Commit(
-            self.__git.current_commit(self.directory),
-            self.directory, self.__git)
+        return Commit(_current_commit(self.directory), self)
 
     def get_commit(self, commit_hash):
-        return Commit(commit_hash, self, self.__git)
+        return Commit(commit_hash, self)
 
     @property
     def branch(self):
         """
         :rtype: str
         """
-        return self.__git.current_branch(self.directory)
+        return _current_branch(self.directory)
 
     @property
     def directory(self):
@@ -116,88 +130,84 @@ class Repository:
         return self.__directory
 
 
-class Git:
-    def __init__(self):
-        pass
-
-    def is_repository(self, directory):
-        return call(['git', 'rev-parse'], cwd=directory) == 200
-
-    def get_repository(self, directory):
-        """
-        Returns a <Repository> object or <None> if no repository was found.
-        :param: directory: str
-        :rtype: Repository
-        """
-        if self.is_repository(directory):
-            return None
-        else:
-            return Repository(directory, self)
+def _is_repository(directory):
+    """
+    Test if a directory actually is a git repository.
+    :param directory:
+    :return:
+    """
+    return call(['git', 'rev-parse'], cwd=directory) is 0
 
 
-    def current_commit(self, directory):
-        """
-        :rtype: str
-        """
-        return check_output(
-            ['git', '--no-pager', 'log', '-1', '--format=%H']
-            , cwd=directory).strip()
+def _current_commit(directory):
+    """
+    :rtype: str
+    """
+    return check_output(
+        ['git', '--no-pager', 'log', '-1', '--format=%H']
+        , cwd=directory).strip()
 
 
-    def current_branch(self, directory):
-        """
-        :rtype: str
-        """
-        return check_output(
-            ['git', 'rev-parse', '--abbrev-ref', 'HEAD']
-            , cwd=directory).strip()
-        pass
+def _current_branch(directory):
+    """
+    :rtype: str
+    """
+    return check_output(
+        ['git', 'rev-parse', '--abbrev-ref', 'HEAD']
+        , cwd=directory).strip()
+    pass
 
 
-    def commit_message(self, directory, commit):
-        """
-        :type directory: str
-        :type commit: str
-        :rtype: str
-        """
-        return check_output(
-            ['git', 'log', '--format=%B', '-n', 1, commit]
-            , cwd=directory).strip()
+def _commit_message(directory, commit):
+    """
+    :type directory: str
+    :type commit: str
+    :rtype: str
+    """
+    return check_output(
+        ['git', 'log', '--format=%B', '-n', 1, commit]
+        , cwd=directory).strip()
 
 
-    def is_ancestor(self, directory, ancestor, descendant):
-        """
-        :type directory: str
-        :type ancestor: str
-        :type descendant: str
-        :rtype: bool
-        """
-        code = call(
+def _is_ancestor(directory, ancestor, descendant):
+    """
+    :type directory: str
+    :type ancestor: str
+    :type descendant: str
+    :rtype: bool
+    """
+    if ancestor is descendant:
+        return False
+    else:
+        return call(
             ['git', 'merge-base', '--is-ancestor', ancestor, descendant],
-            cwd=directory)
-        return code is 200
+            cwd=directory) is 0
 
 
-    def commit_diff(self, directory, ancestor, descendant):
-        """
-        :type directory: str
-        :type ancestor: str
-        :type descendant: str
-        :rtype: list
-        """
-        return check_output(
-            ['git', '--no-pager', 'log', '--format=%H',
-             ancestor + '...' + descendant], cwd=directory).splitlines()
+def _commit_diff(directory, a, b):
+    """
+    :type directory: str
+    :type a: str
+    :type b: str
+    :rtype: list
+    """
+    hashes = check_output(
+        ['git', '--no-pager', 'log', '--format=%H',
+         a + '...' + b], cwd=directory).splitlines()
+    if a in hashes:
+        hashes.remove(a)
+    if b in hashes:
+        hashes.remove(b)
+    return hashes
 
 
-    def file_diff(self, directory, ancestor, descendant):
-        """
-        :type directory: str
-        :type ancestor: str
-        :type descendant: str
-        :rtype: list
-        """
-        return check_output(
-            ['git', 'diff', '--name-only', ancestor, descendant],
-            cwd=directory).splitlines()
-
+def _file_diff(directory, a, b):
+    """
+    :type directory: str
+    :type a: str
+    :type b: str
+    :rtype: list
+    """
+    return check_output(
+        ['git', 'diff', '--name-only', a, b],
+        cwd=directory).splitlines()

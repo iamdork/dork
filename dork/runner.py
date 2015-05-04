@@ -1,50 +1,55 @@
 import subprocess
+import os
 import tempfile
 import json
 
 
-class Runner:
-    def __init__(self):
-        pass
+def apply_roles(roles, ip, extra_vars=None, tags=None, skip=None):
+    # Create the temporary inventory
+    inventory = tempfile.NamedTemporaryFile(delete=False)
+    inventory.write(ip + '\n')
+    inventory.close()
 
-    def apply_roles(self, roles, ip, vars=None, tags=None):
-        # Create the temporary inventory
-        inventory = tempfile.NamedTemporaryFile()
-        inventory.write(ip)
+    # Create the temporary playbook
+    playbook = tempfile.NamedTemporaryFile(delete=False)
+    pblines = ['- hosts: all', '  roles:']
+    for role in roles:
+        pblines.append('  - %s' % role)
+    playbook.write('\n'.join(pblines) + '\n')
+    playbook.close()
 
-        # Create the temporary playbook
-        playbook = tempfile.NamedTemporaryFile()
-        pblines = ['- hosts: all']
-        pblines += '  roles:'
-        for role in roles:
-            pblines += '  - %s' % role
-        playbook.write('\n'.join(pblines))
+    result = run_playbook(inventory.name, playbook.name, extra_vars, tags, skip)
 
-        command = ['ansible-playbook', '-i', inventory.name, playbook.name]
+    # Unlink temporary files
+    os.unlink(inventory.name)
+    os.unlink(playbook.name)
+    return result
 
-        # Process extra variables if provided
-        variables = tempfile.NamedTemporaryFile()
 
-        if (vars):
-            json.dump(vars, variables)
-            command.append('--extra-vars')
-            command.append("@%s" % variables.name)
+def run_playbook(inventory, playbook, extra_vars=None, tags=None, skip=None):
 
-        # Process tags variables if provided
-        if tags:
-            command.append('--tags')
-            command.append(','.join(tags))
+    command = ['ansible-playbook', '-i', inventory, playbook]
 
-        # Run ansible
-        result = subprocess.call(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            stdin=subprocess.PIPE)
+    # Process extra variables if provided
+    variables = tempfile.NamedTemporaryFile(delete=False)
 
-        # Unlink temporary files
-        inventory.unlink()
-        playbook.unlink()
-        variables.unlink()
-        return result
+    if extra_vars:
+        json.dump(extra_vars, variables)
+        variables.close()
+        command.append('--extra-vars')
+        command.append("@%s" % variables.name)
 
+    # Add --tags flag if available.
+    if tags:
+        command.append('--tags')
+        command.append(','.join(tags))
+
+    # Add --skip-tags flag if available.
+    if skip:
+        command.append('--skip-tags')
+        command.append(','.join(skip))
+
+    # Run ansible
+    result = subprocess.call(command)
+    os.unlink(variables.name)
+    return result

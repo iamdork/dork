@@ -1,6 +1,6 @@
 import argparse
 import os
-
+import config
 
 def main():
     """Dork CLI interface"""
@@ -10,10 +10,9 @@ def main():
 
     # Repository argument
     parser.add_argument(
-        '--repository', '-r',
+        '--working-directory', '-d',
         help="""
-        The git repository to work with.
-        By the default, the current directory will be used.
+        Change the working directory.
         """)
     parser.set_defaults(repository=os.getcwd())
     subparsers = parser.add_subparsers(help="command help")
@@ -117,8 +116,7 @@ def main():
     cmd_boot = subparsers.add_parser(
         'boot',
         help="""
-        Start containers for all repositories found below the execution
-        directory.
+        Start all created containers, but don't create new ones.
         """)
 
     def func_boot(params):

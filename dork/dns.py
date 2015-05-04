@@ -1,49 +1,26 @@
-import inject
-import Docker
+"""
+Dynamic host file management.
+"""
+import docker
+from subprocess import call
+import re
 
 
-class DNS:
-    docker = inject.attr(Docker)
+def refresh():
+    """
+    Ensure that all running containers have a valid entry in /etc/hosts.
+    """
+    containers = docker.containers()
+    hosts = '\n'.join(['%s %s' % (c.address, c.domain) for c in [d for d in containers if d.running]])
+    hosts = '# DORK START\n%s\n# DORK END' % hosts
 
-    def __init__(self):
-        pass
+    expr = re.compile('# DORK START\n(.*\n)*# DORK END')
+    with open('/etc/hosts', 'r+') as f:
+        content = f.read()
+        if len(expr.findall(content)) > 0:
+            content = expr.sub(hosts, content)
+        else:
+            content += hosts + '\n'
+        f.write(content)
+    call(['sudo', 'service', 'dnsmasq', 'restart'])
 
-    def update_hosts(self):
-        hostsfile = []
-        dork_section = False
-        replaced = False
-        with open('/etc/hosts') as f:
-            for l in f.readlines():
-                if '# DORK END' in l:
-                    replaced = True
-                    dork_section = False
-
-                if dork_section:
-                    hostsfile += self.__get_hosts()
-                    continue
-
-                hostsfile.append(l.strip())
-
-                if '# DORK START' in l:
-                    dork_section = True
-        if not replaced:
-            hostsfile.append('# DORK START')
-            hostsfile += self.__get_hosts()
-            hostsfile.append('# DORK END')
-
-        with open('/etc/hosts', 'w+') as f:
-            f.write('\n'.join(hostsfile) + '\n')
-
-    def __get_hosts(self):
-        lines = []
-        for c in self.docker.containers:
-            if not c.running:
-                continue
-
-            line = list()
-            line.append(c.address)
-            line.append('.'.join([c.project, c.instance, 'dork']))
-            if c.project is c.instance:
-                line.append('.'.join([c.project, 'dork']))
-            lines.append(' '.join(line))
-        return lines

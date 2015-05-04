@@ -1,61 +1,122 @@
+"""
+Simple API to docker.
+"""
+
 import requests
-import inject
-from config import Config
+from paramiko import SSHClient, SSHException, AutoAddPolicy
+from git import Repository
+from config import config
 from subprocess import check_output
+from datetime import datetime
+from dateutil.parser import parse as parse_date
+
+_date_format = '%Y-%m-%dT%H:%M:%S.%f%z'
 
 
 class Container:
-    def __init__(self, data, docker):
+    """
+    Class representing a container, providing the necessary information and
+    operations.
+    """
+    def __init__(self, data):
         """
-        :param: dict data:
-        :param: Docker docker:
-        :return:
+        :param dict data: dict data: The dataset returned by the Docker API.
         """
         self.__data = data
-        self.__docker = docker
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def list(cls):
+        return containers()
+
+    @classmethod
+    def create(cls, name, image, volumes):
+        return create(name, image, volumes)
 
     @property
     def id(self):
-        """:rtype: str"""
+        """
+        The containers Id.
+
+        :rtype: str
+        """
         return self.__data['Id']
 
     @property
     def image(self):
-        """:rtype: str"""
+        """
+        The image's id the container was created from.
+
+        :rtype: str
+        """
         return self.__data['Image']
 
     @property
     def name(self):
-        """:rtype: str"""
+        """
+        The containers name.
+
+        :rtype: str
+        """
         return self.__data['Name']
 
     @property
     def project(self):
-        """:rtype: str"""
+        """
+        The containers project. First segment of [Container.name].
+
+        :rtype: str
+        """
         return self.name.split('.')[0]
 
     @property
     def instance(self):
-        """:rtype: str"""
+        """
+        The containers instance. Second segment of [Container.name].
+
+        :rtype: str
+        """
         return self.name.split('.')[1]
 
     @property
     def hash(self):
-        """:rtype: str"""
+        """
+        The containers git hash. Second segment of [Container.name].
+
+        :rtype: str
+        """
         return self.name.split('.')[2]
 
     @property
     def domain(self):
-        return "%s.%s.dork" % (self.project, self.instance)
+        """
+        The containers internal domain name.
+
+        :rtype: str
+        """
+        if self.project is self.instance:
+            return "%s.dork" % self.project
+        else:
+            return "%s.%s.dork" % (self.project, self.instance)
 
     @property
     def running(self):
-        """:rtype: bool"""
+        """
+        Check if the container is running.
+
+        :rtype: bool
+        """
         return self.__data['State']['Running']
 
     @property
     def address(self):
-        """:rtype: str"""
+        """
+        The containers IP address, or [None] if the container is not running.
+
+        :rtype: str
+        """
         if self.running:
             return self.__data['NetworkSettings']['IPAddress']
         else:
@@ -63,56 +124,104 @@ class Container:
 
     @property
     def source(self):
-        """:rtype: str"""
+        """
+        The directory on the host machine, mounted to the containers source
+        directory.
+
+        :rtype: str
+        """
         directory = None
         for bind in self.__data['HostConfig']['Binds']:
             host = bind.split(':')[0]
             container = bind.split(':')[1]
-            if container == '/var/source':
+            if container == config().dork_source_directory:
                 directory = host
-            pass
         return directory
 
     @property
+    def repository(self):
+        """
+        Retrieve the containers source git repository.
+
+        :rtype: Repository
+        """
+        return Repository(self.source)
+
+    @property
     def build(self):
-        """:rtype: str"""
+        """
+        The directory on the host machine, mounted to the containers build
+        directory.
+
+        :rtype: str
+        """
         directory = None
         for bind in self.__data['HostConfig']['Binds']:
             host = bind.split(':')[0]
             container = bind.split(':')[1]
-            if container == '/var/build':
+            if container == config().dork_build_directory:
                 directory = host
-            pass
         return directory
 
     @property
     def accessible(self):
         """:rtype: bool"""
-        return self.__docker.container_accessible(self.id)
+        if not self.running:
+            return False
+        else:
+            return _container_accessible(self.address)
+
+    @property
+    def time_created(self):
+        """:rtype: datetime"""
+        return parse_date(self.__data['Created'])
+
+    @property
+    def time_started(self):
+        """:rtype: datetime"""
+        if self.running:
+            return parse_date(self.__data['State']['StartedAt'])
+        else:
+            return None
+
+    @property
+    def time_stopped(self):
+        """:rtype: datetime"""
+        if self.running:
+            return None
+        else:
+            return parse_date(self.__data['State']['FinishedAt'])
 
     def start(self):
-        self.__docker.container_start(self.id)
+        _container_start(self.id)
 
     def stop(self):
-        self.__docker.container_stop(self.id)
+        _container_stop(self.id)
 
     def remove(self):
-        self.__docker.container_remove(self.id)
+        _container_remove(self.id)
 
     def rename(self, name):
-        self.__docker.container_rename(self.id, name)
+        _container_rename(self.id, name)
 
-    def commit(self, image):
-        self.__docker.container_rename(self.id, image)
+    def commit(self, repo):
+        _container_commit(self.id, repo)
 
 
 class Image:
-    def __init__(self, data, docker):
-        """
-        :type docker: Docker
-        """
+    def __init__(self, data):
         self.__data = data
-        self.__docker = docker
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def list(cls):
+        return images()
+
+    @classmethod
+    def dangling(cls):
+        return _dangling_images()
 
     @property
     def id(self):
@@ -134,141 +243,147 @@ class Image:
         """:rtype: str"""
         return self.name.split('/')[1]
 
+    @property
+    def time_created(self):
+        """:rtype: datetime"""
+        return parse_date(self.__data['Created'])
+
     def delete(self):
-        self.__docker.image_remove(self.id)
+        _image_remove(self.id)
 
 
-class Docker:
+class BaseImage:
+    def __init__(self, project):
+        self.project = project
+        self.hash = 'new'
+
+
+# ======================================================================
+# PUBLIC METHODS
+# ======================================================================
+def containers():
+    for c in __get('containers/json', query={all: 1}):
+        yield Container(__get('containers/%s/json' % c['Id']))
+
+
+def images():
+    for i in __get('images/json'):
+        yield Image(__get('images/%s/json' % i['Id']))
+
+
+def create(name, image, volumes):
+    """:type volumes: dict"""
+    data = {
+        'Image': image,
+        'Volumes': {},
+        'HostConfig': {
+            'Binds': [],
+        },
+    }
+    for host in volumes:
+        container = volumes[host]
+        data['Volumes'][container] = {}
+        data['HostConfig']['Binds'].append("%s:%s" % (host, container))
+    __post(
+        'containers/create',
+        query={'name': name},
+        data=data,
+        codes=(201,))
+
+
+def _dangling_images():
+    image_ids = check_output([
+        'docker', 'images', '-q', '-f', 'dangling=true'
+    ]).splitlines()
+    for iid in image_ids:
+        yield Image(__get('images/%s/json' % iid))
+
+
+# ======================================================================
+# PROTECTED METHODS
+# ======================================================================
+def _container_start(cid):
+    __post('containers/%s/start' % cid, codes=(204, 304))
+
+
+def _container_stop(cid):
+    __post('containers/%s/stop' % cid, codes=(204, 304))
+
+
+def _container_remove(cid):
+    __delete('containers/%s' % cid, codes=(204,))
+
+
+def _container_rename(cid, name):
+    __post(
+        'containers/%s/rename' % cid,
+        query={'name': name}, codes=(204,))
+
+
+def _container_commit(cid, repo):
+    __post(
+        'commit',
+        query={'container': cid, 'repo': repo},
+        codes=(201,))
+
+
+def _container_accessible(address):
+    client = SSHClient()
+    client.load_system_host_keys()
+    client.set_missing_host_key_policy(AutoAddPolicy)
+    try:
+        client.connect(address)
+        return True
+    except SSHException:
+        return False
+
+
+def _image_remove(iid):
+    __delete('images/%s' % iid, codes=(200,))
+
+
+# ======================================================================
+# PRIVATE METHODS
+# ======================================================================
+class DockerException(Exception):
+    def __init__(self, msg, code):
+        super(DockerException, self).__init__(msg)
+        self.code = code
+
+
+def __get(path, query=(), codes=(200,)):
     """
-    :type config: Config
+    :param str path:
+    :param dict[str,str] query:
+    :param list[int] codes:
+    :return: json
     """
-    config = inject.attr(Config)
 
-    def __init__(self):
-        pass
+    result = requests.get(
+        "%s/%s" % (config().docker_address, path),
+        params=query)
 
-    # ======================================================================
-    # PUBLIC METHODS
-    # ======================================================================
-    @property
-    def containers(self):
-        for c in self.__get('containers/json', query={all: 1}):
-            yield Container(self.__get('/containers/%s/json' % c['Id']), self)
+    if result.status_code in codes:
+        return result.json()
+    else:
+        raise DockerException(result.status_code, result.text)
 
-    @property
-    def images(self):
-        for i in self.__get('images/json'):
-            yield Image(self.__get('/images/%s/json' % i['Id']), self)
 
-    def create(self, name, image, volumes):
-        """:type volumes: dict"""
-        data = {
-            'Image': image,
-            'Volumes': {},
-            'HostConfig': {
-                'Binds': [],
-            },
-        }
-        for host, container in volumes:
-            data['Volumes'][container] = {}
-            data['HostConfig']['Binds'].append("%s:%s" % (host, container))
-        self.__post(
-            '/containers/create',
-            query={'name': name},
-            data=data,
-            codes=(201,))
+def __post(path, query=(), data=(), codes=(200,)):
 
-    def cleanup(self):
-        image_ids = check_output([
-            'docker', 'images', '-q', '-f', 'dangling=true'
-        ]).splitlines()
-        for iid in image_ids:
-            Image(self.__get('/images/%s/json' % iid, self), self).delete()
+    result = requests.post(
+        "%s/%s" % (config().docker_address, path),
+        params=query, data=data)
 
-    # ======================================================================
-    # PROTECTED METHODS
-    # ======================================================================
-    def container_start(self, cid):
-        self.__post('/containers/%s/start' % cid, codes=(204, 304))
+    if result.status_code not in codes:
+        raise DockerException(result.status_code, result.text)
 
-    def container_stop(self, cid):
-        self.__post('/containers/%s/stop' % cid, codes=(204, 304))
 
-    def container_remove(self, cid):
-        self.__delete('/containers/%s' % cid, codes=(204,))
+def __delete(path, query=(), codes=(200,)):
 
-    def container_rename(self, cid, name):
-        self.__post(
-            '/containers/%s/rename' % cid,
-            query={'name': name}, codes=(204,))
+    result = requests.delete(
+        "%s/%s" % (config().docker_address, path),
+        params=query)
 
-    def container_commit(self, cid, repo):
-        self.__post(
-            '/commit',
-            query={'container': cid, 'repo': repo},
-            codes=(201,))
-
-    def container_accessible(self, cid):
-        return "sshd.pid" in self.__exec(cid, 'ls /var/run/ | grep sshd.pid')
-
-    def image_remove(self, iid):
-        self.__delete('/images/%s' % iid, codes=(200,))
-
-    # ======================================================================
-    # PRIVATE METHODS
-    # ======================================================================
-    def __get(self, path, query=(), codes=(200,)):
-        """
-        :param str path:
-        :param dict[str,str] query:
-        :param list[int] codes:
-        :return: json
-        """
-
-        result = requests.get(
-            "%s/%s" % (self.config.docker_address, path),
-            params=query)
-
-        if result.status_code in codes:
-            return result.json()
-        else:
-            raise Exception(result.text)
-
-    def __post(self, path, query=(), data=(), codes=(200,)):
-
-        result = requests.post(
-            "%s/%s" % (self.config.docker_address, path),
-            params=query, data=data)
-
-        if result.status_code not in codes:
-            raise Exception(result.text)
-
-    def __exec(self, cid, command, codes=(200,)):
-
-        process = self.__post(
-            'containers/%s/exec' % cid,
-            data={
-                'AttachStdin': False,
-                'AttachStdout': True,
-                'AttachStderr': True,
-                'Tty': False,
-                'Cmd': [command]},
-            codes=(204,))
-
-        result = requests.post(
-            '%s/exec/%s/start' % (self.config.docker_address, process['Id']),
-            data={'Detach': False, "Tty": False})
-
-        if result.status_code is not codes:
-            raise Exception(result.text)
-        else:
-            return result.text
-
-    def __delete(self, path, query=(), codes=(200,)):
-
-        result = requests.delete(
-            "%s/%s" % (self.config.docker_address, path),
-            params=query)
-
-        if result.status_code not in codes:
-            raise Exception(result.text)
+    if result.status_code not in codes:
+        raise DockerException(result.status_code, result.text)
