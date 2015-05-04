@@ -49,7 +49,7 @@ def main():
                 current = d.repository.current_commit
                 commit = Commit(d.container.hash, d.repository)
                 data.append(['Container commit', commit.message])
-                data.append(['Update distance', len(current - commit)])
+                data.append(['Update distance', "%s" % len(commit - current)])
                 tags = [t for t in d.tags]
                 if len(tags) > 0:
                     data.append(['Update tags', ', '.join(d.tags)])

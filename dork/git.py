@@ -198,10 +198,6 @@ def _commit_diff(directory, a, b):
     hashes = check_output(
         ['git', '--no-pager', 'log', '--format=%H',
          a + '...' + b], cwd=directory).splitlines()
-    if a in hashes:
-        hashes.remove(a)
-    if b in hashes:
-        hashes.remove(b)
     return hashes
 
 
