@@ -29,6 +29,11 @@ def config(clear=False):
         __conf__ = Config(parser)
     return __conf__
 
+__defaults__ = {}
+
+def config_defaults(defaults):
+    __defaults__.update(defaults)
+
 
 class Config:
     def __init__(self, parser=None):
@@ -43,6 +48,8 @@ class Config:
                 return self.__p.get('dork', key)
             except NoOptionError:
                 return default
+        elif key in __defaults__:
+            return __defaults__[key]
         else:
             return default
 
@@ -130,6 +137,15 @@ class Config:
         :rtype: int
         """
         return self.__default('max_containers', 0)
+
+    @property
+    def log_level(self):
+        """
+        The loglevel for dork interal logs.
+
+        :return: string
+        """
+        return self.__default('log_level', 'warn')
 
     def project_vars(self, project):
         """

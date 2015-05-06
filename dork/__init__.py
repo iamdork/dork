@@ -4,10 +4,9 @@ import config
 from terminaltables import AsciiTable
 from dork import Dork, Mode, State, Status
 from git import Commit
-import logging
+import json
 
 def main():
-    # logging.basicConfig(level=logging.DEBUG)
     """Dork CLI interface"""
     parser = argparse.ArgumentParser(
         prog="dork",
@@ -15,11 +14,20 @@ def main():
 
     # Repository argument
     parser.add_argument(
-        '--working-directory', '-d',
+        '--directory', '-d',
         help="""
         Change the working directory.
         """)
     parser.set_defaults(repository=os.getcwd())
+
+    # Repository argument
+    parser.add_argument(
+        '--logging', '-l',
+        help="""
+        Set the loglevel: error, warn, info, debug
+        """)
+    parser.set_defaults(logging='warn')
+
     subparsers = parser.add_subparsers(help="command help")
 
     # ======================================================================
@@ -30,25 +38,57 @@ def main():
         help='Display a summary of the dorks status.')
 
     def func_status(params):
-        dorks = [do for do in Dork.scan(params.working_directory)]
-        if len(dorks) == 1:
-            d = dorks[0]
+        config.config_defaults({'log_level': params.logging})
+        dorks = [do for do in Dork.scan(params.repository)]
+        rows = [[
+            'Name',
+            'Directory',
+            'Status',
+            'State',
+            'Mode',
+        ]]
+        directory = params.repository
+        for d in Dork.scan(directory):
+            rows.append([
+                d.name,
+                d.repository.directory,
+                d.status.colored(),
+                d.state.colored(),
+                d.mode.colored()
+            ])
+        table = AsciiTable(rows)
+        print(table.table)
+        return 0
+
+    cmd_status.set_defaults(func=func_status)
+
+    # ======================================================================
+    # info command
+    # ======================================================================
+    cmd_info = subparsers.add_parser(
+        'info',
+        help='Display a summary of the dorks status.')
+
+    def func_info(params):
+        config.config_defaults({'log_level': params.logging})
+        directory = params.repository
+        for d in Dork.scan(directory):
             data = [
                 ['Project', d.project],
                 ['Instance', d.instance],
                 ['Roles', ', '.join([
                     "%s (%s)" % (role.name, ', '.join(patterns))
                     for role, patterns in d.roles.iteritems()])],
-                ['Repository', d.repository.directory],
-                ['Repository commit', d.repository.current_commit.message],
+                ['Directory', d.repository.directory],
+                ['HEAD', d.repository.current_commit.message],
                 ['Mode', d.mode.colored()],
                 ['State', d.state.colored()],
                 ['Status', d.status.colored()],
-            ]
+                ]
             if d.status == Status.DIRTY:
                 current = d.repository.current_commit
                 commit = Commit(d.container.hash, d.repository)
-                data.append(['Container commit', commit.message])
+                data.append(['Container HEAD', commit.message])
                 data.append(['Update distance', "%s" % len(commit - current)])
                 tags = [t for t in d.tags]
                 if len(tags) > 0:
@@ -57,30 +97,35 @@ def main():
                     data.append(['Update tags', 'None'])
 
             table = AsciiTable(data)
-            table.inner_row_border = True
-            print(table.table)
-        else:
-            rows = [[
-                'Name',
-                'Directory',
-                'Status',
-                'State',
-                'Mode',
-            ]]
-            directory = params.working_directory
-            for d in Dork.scan(directory):
-                rows.append([
-                    d.name,
-                    d.repository.directory,
-                    d.status.colored(),
-                    d.state.colored(),
-                    d.mode.colored()
-                ])
-            table = AsciiTable(rows)
+            table.inner_heading_row_border = False
             print(table.table)
         return 0
 
-    cmd_status.set_defaults(func=func_status)
+    cmd_info.set_defaults(func=func_info)
+
+    # ======================================================================
+    # inventory command
+    # ======================================================================
+    cmd_inventory = subparsers.add_parser(
+        'inventory',
+        help="""
+        Print a dynamic ansible inventory for all matched running dorks.
+        """)
+
+    def func_inventory(params):
+        inventory = {}
+        for d in Dork.scan(params.repository):
+            if d.state == State.RUNNING:
+                if d.project not in inventory:
+                    inventory[d.project] = {
+                        'hosts': [],
+                        'vars': config.config().project_vars(d.project)
+                    }
+                inventory[d.project]['hosts'].append(d.container.address)
+        print(json.dumps(inventory))
+
+    cmd_inventory.set_defaults(func=func_inventory)
+
 
     # ======================================================================
     # create command
@@ -93,7 +138,8 @@ def main():
         """)
 
     def func_create(params):
-        for d in Dork.scan(params.working_directory):
+        config.config_defaults({'log_level': params.logging})
+        for d in Dork.scan(params.repository):
             if not d.create():
                 return -1
 
@@ -110,7 +156,8 @@ def main():
         """)
 
     def func_start(params):
-        for d in Dork.scan(params.working_directory):
+        config.config_defaults({'log_level': params.logging})
+        for d in Dork.scan(params.repository):
             if not d.start():
                 return -1
 
@@ -126,21 +173,32 @@ def main():
         necessary steps based on the files changed.
         """)
 
-    cmd_update.add_argument(
-        '--full', '-f', action="store_true",
-        help="""
-        Run the full ansible scripts instead of only tags identified by
-        the changed files. Automatically calls [create] if necessary.
-        """)
-
     def func_update(params):
-        for d in Dork.scan(params.working_directory):
+        config.config_defaults({'log_level': params.logging})
+        for d in Dork.scan(params.repository):
             if not d.update():
                 return -1
 
 
     cmd_update.set_defaults(func=func_update)
 
+    # ======================================================================
+    # build command
+    # ======================================================================
+    cmd_update = subparsers.add_parser(
+        'build',
+        help="""
+        Runs the full build procedure.
+        """)
+
+    def func_update(params):
+        config.config_defaults({'log_level': params.logging})
+        for d in Dork.scan(params.repository):
+            if not d.build():
+                return -1
+
+
+    cmd_update.set_defaults(func=func_update)
     # ======================================================================
     # stop command
     # ======================================================================
@@ -151,7 +209,8 @@ def main():
         """)
 
     def func_stop(params):
-        for d in Dork.scan(params.working_directory):
+        config.config_defaults({'log_level': params.logging})
+        for d in Dork.scan(params.repository):
             if not d.stop():
                 return -1
 
@@ -167,7 +226,8 @@ def main():
         """)
 
     def func_remove(params):
-        for d in Dork.scan(params.working_directory):
+        config.config_defaults({'log_level': params.logging})
+        for d in Dork.scan(params.repository):
             if not d.remove():
                 return -1
 
@@ -183,7 +243,8 @@ def main():
         """)
 
     def func_boot(params):
-        for d in Dork.scan(params.working_directory):
+        config.config_defaults({'log_level': params.logging})
+        for d in Dork.scan(params.repository):
             if d.container:
                 if not d.start():
                     return -1

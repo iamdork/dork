@@ -46,33 +46,41 @@ class Role:
         :rtype: str
         """
         matched_patterns = []
-        # loop over defined patterns and return the first that matches
+        # loop over defined patterns and return a list of matches.
         for pattern, filepatterns in self.patterns.iteritems():
-            fits = len(filepatterns) > 0
-            for filepattern in filepatterns:
-                if isinstance(filepattern, dict):
-                    for contentpattern, regex in filepattern.iteritems():
-                        f = "%s/%s" % (repository.directory, contentpattern)
-                        matches = []
-                        if '*' in f:
-                            matches = glob(f)
-                        elif os.path.exists(f):
-                            matches.append(f)
-                        m = False
-                        expr = re.compile(regex)
-                        for match in matches:
-                            with open(match) as fp:
-                                if expr.search(fp.read()):
-                                    m = True
-                        fits = fits and m
-                else:
-                    f = "%s/%s" % (repository.directory, filepattern)
-                    if '*' in filepattern:
-                        fits = fits and len(glob(f)) > 0
+            if isinstance(filepatterns, list):
+                # If filepatterns is a list, check them all.
+                fits = len(filepatterns) > 0
+                for filepattern in filepatterns:
+                    # If it's a dictionary, use key as filepattern and
+                    # value as content regex.
+                    if isinstance(filepattern, dict):
+                        for contentpattern, regex in filepattern.iteritems():
+                            f = "%s/%s" % (repository.directory, contentpattern)
+                            matches = []
+                            if '*' in f:
+                                matches = glob(f)
+                            elif os.path.exists(f):
+                                matches.append(f)
+                            m = False
+                            expr = re.compile(regex)
+                            for match in matches:
+                                with open(match) as fp:
+                                    if expr.search(fp.read()):
+                                        m = True
+                            fits = fits and m
                     else:
-                        fits = fits and os.path.exists(f)
-            if fits:
-                matched_patterns.append(pattern)
+                        f = "%s/%s" % (repository.directory, filepattern)
+                        if '*' in filepattern:
+                            fits = fits and len(glob(f)) > 0
+                        else:
+                            fits = fits and os.path.exists(f)
+                if fits:
+                    matched_patterns.append(pattern)
+            elif isinstance(filepatterns, bool):
+                # If filepatterns is a boolean value, match the pattern accordingly.
+               if filepatterns:
+                   matched_patterns.append(pattern)
 
         # no pattern matched, return None to indicate this role isn't required
         return matched_patterns

@@ -71,6 +71,14 @@ class Dork:
         """
         self.repository = repository
         self.conf = config.config()
+        levels = {
+            'error': logging.ERROR,
+            'warn': logging.WARNING,
+            'info': logging.INFO,
+            'debug': logging.DEBUG,
+        }
+        self.logger = logging.Logger(self.name, level=levels[self.conf.log_level])
+        self.logger.addHandler(logging.StreamHandler())
 
     @classmethod
     def scan(cls, directory):
@@ -185,10 +193,24 @@ class Dork:
         :rtype: dict[Role, list[str]]
         """
         roles = {}
+        """:type: dict[Role, list[str]]"""
+
+        # Add all roles that match the pattern.
         for role in Role.list():
             patterns = role.matching_pattern(self.repository)
             if len(patterns) > 0:
                 roles[role] = patterns
+
+        # Create list of roles that are already included in other roles.
+        redundant = []
+        for role in roles.keys():
+            for r in roles.keys():
+                if role.name in r.includes:
+                    redundant.append(role)
+
+        # Remove all redundant roles.
+        for r in redundant:
+            del roles[r]
         return roles
 
     @property
@@ -602,14 +624,14 @@ class Dork:
         return "[%s] %s" % (self.name, msg)
 
     def debug(self, msg, *args):
-        logging.debug(self._log(msg), *args)
+        self.logger.debug(self._log(msg), *args)
 
     def info(self, msg, *args):
-        logging.info(self._log(msg), *args)
+        self.logger.info(self._log(msg), *args)
 
     def warn(self, msg, *args):
-        logging.warn(self._log(msg), *args)
+        self.logger.warn(self._log(msg), *args)
 
     def err(self, msg, *args):
-        logging.error(self._log(msg), *args)
+        self.logger.error(self._log(msg), *args)
 
