@@ -237,7 +237,6 @@ class Dork:
         :rtype: list[str]
         """
         changes = self.repository.current_commit % Commit(self.container.hash, self.repository)
-        roles = self.roles
         for name, role in self.roles.iteritems():
             tags = role.matching_tags(changes)
             for tag in tags:
