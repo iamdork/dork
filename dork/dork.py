@@ -186,33 +186,46 @@ class Dork:
             return Status.CLEAN
         return Status.DIRTY
 
+    __roles = None
+
     @property
     def roles(self):
         """
-        Dictionary of matching [Role]s and the corresponding matched
-        role patterns.
-
-        :rtype: dict[Role, list[str]]
+        :rtype: dict[str, Role]
         """
-        roles = {}
-        """:type: dict[Role, list[str]]"""
+        if not self.__roles:
+            all_roles = {r.name: r for r in Role.list()}
+            self.__roles = {}
 
-        # Add all roles that match the pattern.
-        for role in Role.list():
-            patterns = role.matching_pattern(self.repository)
-            if len(patterns) > 0:
-                roles[role] = patterns
+            def _recurse_includes(includes):
+                for inc in includes:
+                    if inc in all_roles and inc not in self.__roles:
+                        self.__roles[inc] = all_roles[inc]
+                        _recurse_includes(self.__roles[inc].includes)
 
-        # Create list of roles that are already included in other roles.
+            for name, role in all_roles.iteritems():
+                if name not in self.__roles and role.matches(self.repository):
+                    self.__roles[name] = role
+                    _recurse_includes(role.includes)
+        return self.__roles
+
+
+    @property
+    def executable_roles(self):
+        """
+        :rtype: dict[str, Role]
+        """
         redundant = []
-        for role in roles.keys():
-            for r in roles.keys():
-                if role.name in r.includes:
-                    redundant.append(role)
 
-        # Remove all redundant roles.
+        roles = dict(self.roles)
+        for name, role in self.roles.iteritems():
+            for n, r in roles.iteritems():
+                if r.name in role.includes:
+                    redundant.append(r.name)
+
         for r in redundant:
             del roles[r]
+
         return roles
 
     @property
@@ -223,11 +236,37 @@ class Dork:
 
         :rtype: list[str]
         """
-        for role, patterns in self.roles.iteritems():
-            commit = Commit(self.container.hash, self.repository)
-            tags = role.matching_tags(self.repository.current_commit % commit)
+        changes = self.repository.current_commit % Commit(self.container.hash, self.repository)
+        roles = self.roles
+        for name, role in self.roles.iteritems():
+            tags = role.matching_tags(changes)
             for tag in tags:
                 yield tag
+
+    @property
+    def patterns(self):
+        """:rtype: list[str]"""
+        patterns = []
+        for name, role in self.roles.iteritems():
+            for pattern in role.patterns:
+                patterns.append(pattern)
+        return patterns
+
+    @property
+    def matching_patterns(self):
+        """:rtype: list[str]"""
+        patterns = []
+        for name, role in self.roles.iteritems():
+            for pattern in role.matching_patterns(self.repository):
+                patterns.append(pattern)
+        return patterns
+
+    @property
+    def exclude_patterns(self):
+        """
+        :rtype: list[str]
+        """
+        return [p for p in self.patterns if p not in self.matching_patterns]
 
     # ======================================================================
     # LIFECYCLE INTERFACE
@@ -336,7 +375,7 @@ class Dork:
 
         # Stop containers within the same instance
         for c in Container.list():
-            if c.project == self.project and c.instance == self.instance:
+            if c.project == self.project and c.instance == self.instance and c.running:
                 self.info("Stopping sibling %s.", c)
                 c.stop()
 
@@ -409,7 +448,7 @@ class Dork:
             container_commit = Commit(self.container.hash, self.repository)
             changes = self.repository.current_commit % container_commit
             self.info("Found %s changed files.", len(changes))
-            for role, patterns in self.roles.iteritems():
+            for name, role in self.roles.iteritems():
                 matched = role.matching_tags(changes)
                 if matched:
                     self.debug("Matched %s in %s.", matched, role.name)
@@ -442,6 +481,7 @@ class Dork:
             self.info("Restarting container.")
             self.container.stop()
             self.container.start()
+            dns.refresh()
 
         self.info("Update successful.")
         return True
@@ -477,13 +517,11 @@ class Dork:
 
         # Iterate over matching roles and build a list of tags that have NOT
         # been matched, to be used as list of exclude tags.
-        skip_tags = []
-        for role, patterns in self.roles.iteritems():
-            skip_tags += [p for p in role.patterns.keys() if p not in patterns]
+        skip_tags = self.exclude_patterns
         self.debug("Skipping tags: %s", skip_tags)
 
         return runner.apply_roles(
-            [role.name for role in self.roles],
+            [name for name, role in self.executable_roles.iteritems()],
             self.container.address,
             extra_vars, tags, skip_tags) == 0
 

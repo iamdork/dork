@@ -15,12 +15,15 @@ def refresh():
     hosts = '# DORK START\n%s\n# DORK END' % hosts
 
     expr = re.compile('# DORK START\n(.*\n)*# DORK END')
-    with open('/etc/hosts', 'r+') as f:
+    with open('/etc/hosts', 'r') as f:
         content = f.read()
-        if len(expr.findall(content)) > 0:
-            content = expr.sub(hosts, content)
-        else:
-            content += hosts + '\n'
+
+    if len(expr.findall(content)) > 0:
+        content = expr.sub(hosts, content)
+    else:
+        content += hosts + '\n'
+
+    with open('/etc/hosts', 'w') as f:
         f.write(content)
     call(['sudo', 'service', 'dnsmasq', 'restart'])
 

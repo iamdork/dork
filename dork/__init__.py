@@ -79,8 +79,8 @@ def main():
             data.append(['Project', d.project])
             data.append(['Instance', d.instance])
             data.append(['Roles', ', '.join([
-                "%s (%s)" % (role.name, ', '.join(patterns))
-                for role, patterns in d.roles.iteritems()])])
+                name for name, role in d.executable_roles.iteritems()])])
+            data.append(['Patterns', ', '.join(d.matching_patterns)])
             data.append(['Directory', d.repository.directory])
             data.append(['Branch', d.repository.branch])
             data.append(['HEAD', d.repository.current_commit.message])

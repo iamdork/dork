@@ -40,50 +40,54 @@ class Role:
             patterns = {'default': patterns}
         return patterns
 
-    def matching_pattern(self, repository):
+    def matches(self, repository):
+        return len(self.matching_patterns(repository)) > 0
+
+    __matching_patterns = None
+    def matching_patterns(self, repository):
         """
         :type repository: Repository
         :rtype: str
         """
-        matched_patterns = []
-        # loop over defined patterns and return a list of matches.
-        for pattern, filepatterns in self.patterns.iteritems():
-            if isinstance(filepatterns, list):
-                # If filepatterns is a list, check them all.
-                fits = len(filepatterns) > 0
-                for filepattern in filepatterns:
-                    # If it's a dictionary, use key as filepattern and
-                    # value as content regex.
-                    if isinstance(filepattern, dict):
-                        for contentpattern, regex in filepattern.iteritems():
-                            f = "%s/%s" % (repository.directory, contentpattern)
-                            matches = []
-                            if '*' in f:
-                                matches = glob(f)
-                            elif os.path.exists(f):
-                                matches.append(f)
-                            m = False
-                            expr = re.compile(regex)
-                            for match in matches:
-                                with open(match) as fp:
-                                    if expr.search(fp.read()):
-                                        m = True
-                            fits = fits and m
-                    else:
-                        f = "%s/%s" % (repository.directory, filepattern)
-                        if '*' in filepattern:
-                            fits = fits and len(glob(f)) > 0
+        if self.__matching_patterns is None:
+            self.__matching_patterns = []
+            # loop over defined patterns and return a list of matches.
+            for pattern, filepatterns in self.patterns.iteritems():
+                if isinstance(filepatterns, list):
+                    # If filepatterns is a list, check them all.
+                    fits = len(filepatterns) > 0
+                    for filepattern in filepatterns:
+                        # If it's a dictionary, use key as filepattern and
+                        # value as content regex.
+                        if isinstance(filepattern, dict):
+                            for contentpattern, regex in filepattern.iteritems():
+                                f = "%s/%s" % (repository.directory, contentpattern)
+                                matches = []
+                                if '*' in f:
+                                    matches = glob(f)
+                                elif os.path.exists(f):
+                                    matches.append(f)
+                                m = False
+                                expr = re.compile(regex)
+                                for match in matches:
+                                    with open(match) as fp:
+                                        if expr.search(fp.read()):
+                                            m = True
+                                fits = fits and m
                         else:
-                            fits = fits and os.path.exists(f)
-                if fits:
-                    matched_patterns.append(pattern)
-            elif isinstance(filepatterns, bool):
-                # If filepatterns is a boolean value, match the pattern accordingly.
-               if filepatterns:
-                   matched_patterns.append(pattern)
+                            f = "%s/%s" % (repository.directory, filepattern)
+                            if '*' in filepattern:
+                                fits = fits and len(glob(f)) > 0
+                            else:
+                                fits = fits and os.path.exists(f)
+                    if fits:
+                        self.__matching_patterns.append(pattern)
+                elif isinstance(filepatterns, bool):
+                    # If filepatterns is a boolean value, match the pattern accordingly.
+                   if filepatterns:
+                       self.__matching_patterns.append(pattern)
 
-        # no pattern matched, return None to indicate this role isn't required
-        return matched_patterns
+        return self.__matching_patterns
 
     def matching_tags(self, changeset):
         """
