@@ -42,6 +42,7 @@ def main():
         rows = [[
             'Name',
             'Directory',
+            'Branch',
             'Status',
             'State',
             'Mode',
@@ -50,6 +51,7 @@ def main():
             rows.append([
                 d.name,
                 d.repository.directory,
+                d.repository.branch,
                 d.status.colored(),
                 d.state.colored(),
                 d.mode.colored()
@@ -80,6 +82,7 @@ def main():
                 "%s (%s)" % (role.name, ', '.join(patterns))
                 for role, patterns in d.roles.iteritems()])])
             data.append(['Directory', d.repository.directory])
+            data.append(['Branch', d.repository.branch])
             data.append(['HEAD', d.repository.current_commit.message])
             data.append(['Mode', d.mode.colored()])
             data.append(['State', d.state.colored()])
