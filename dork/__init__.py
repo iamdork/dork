@@ -46,7 +46,7 @@ def main():
             'State',
             'Mode',
         ]]
-        for d in Dork.scan(params.directory):
+        for d in Dork.scan(os.path.abspath(params.directory)):
             rows.append([
                 d.name,
                 d.repository.directory,
@@ -72,7 +72,7 @@ def main():
     def func_info(params):
         config.config_defaults({'log_level': params.logging})
         data = []
-        for d in Dork.scan(params.directory):
+        for d in Dork.scan(os.path.abspath(params.directory)):
             data.append(['---------------'])
             data.append(['Project', d.project])
             data.append(['Instance', d.instance])
@@ -116,7 +116,7 @@ def main():
 
     def func_inventory(params):
         inventory = {}
-        for d in Dork.scan(params.directory):
+        for d in Dork.scan(os.path.abspath(params.directory)):
             if d.state == State.RUNNING:
                 if d.project not in inventory:
                     inventory[d.project] = {
@@ -141,7 +141,7 @@ def main():
 
     def func_create(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.directory):
+        for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.create():
                 return -1
 
@@ -159,7 +159,7 @@ def main():
 
     def func_start(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.directory):
+        for d in Dork.scan(os.path.abspath(params.directory)):
             if not (d.create() and d.start()):
                 return -1
 
@@ -177,10 +177,9 @@ def main():
 
     def func_update(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.directory):
-            if not (d.create() and d.start() and d.update()):
+        for d in Dork.scan(os.path.abspath(params.directory)):
+            if not (d.create() and d.start() and d.update() and d.clean()):
                 return -1
-
 
     cmd_update.set_defaults(func=func_update)
 
@@ -195,7 +194,7 @@ def main():
 
     def func_update(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.directory):
+        for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.build():
                 return -1
 
@@ -212,7 +211,7 @@ def main():
 
     def func_stop(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.directory):
+        for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.stop():
                 return -1
 
@@ -229,8 +228,8 @@ def main():
 
     def func_remove(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.directory):
-            if not d.remove():
+        for d in Dork.scan(os.path.abspath(params.directory)):
+            if not (d.stop() and d.remove()):
                 return -1
 
     cmd_remove.set_defaults(func=func_remove)
@@ -246,7 +245,7 @@ def main():
 
     def func_boot(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.directory):
+        for d in Dork.scan(os.path.abspath(params.directory)):
             if d.container:
                 if not d.start():
                     return -1

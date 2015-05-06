@@ -1,6 +1,18 @@
 from subprocess import call, check_output, PIPE
-from glob import glob
+from glob2 import glob, Globber
+import os
 
+def _listdir(path):
+    if os.path.exists(path + '/.git'):
+        return []
+    else:
+        return os.listdir(path)
+
+class GitGlobber(Globber):
+    listdir = staticmethod(_listdir)
+
+
+git_globber = GitGlobber()
 
 def get_repositories(directory):
     """
@@ -11,9 +23,9 @@ def get_repositories(directory):
     if _is_repository(directory):
         yield Repository(directory)
     else:
-        repositories = [subdir[:-5] for subdir in glob(directory + '/**/.git')]
+        repositories = [subdir[:-5] for subdir in git_globber.glob(directory + '/**/.git')]
         for d in repositories:
-            if not any([(d in r and d is not r) for r in repositories]):
+            if not any([(r in d and d is not r) for r in repositories]):
                 yield Repository(d)
 
 
@@ -45,14 +57,14 @@ class Commit:
         :type other: Commit
         :rtype: bool
         """
-        return _is_ancestor(self.__directory, self.__hash, other.__hash)
+        return not self.__eq__(other) and _is_ancestor(self.__directory, self.__hash, other.__hash)
 
     def __gt__(self, other):
         """
         :type other: Commit
         :rtype: bool
         """
-        return _is_ancestor(self.__directory, other.__hash, self.__hash)
+        return not self.__eq__(other) and _is_ancestor(self.__directory, other.__hash, self.__hash)
 
     def __le__(self, other):
         """

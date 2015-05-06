@@ -77,6 +77,8 @@ setup(
         'enum34',
         'py-dateutil',
         'terminaltables',
+        'glob2',
+        'colorclass',
     ],
 
     # List additional groups of dependencies here (e.g. development

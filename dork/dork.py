@@ -8,6 +8,8 @@ import logging
 from enum import Enum
 import shutil
 import colorclass
+import time
+import os
 
 
 class State(Enum):
@@ -340,6 +342,15 @@ class Dork:
 
         # Start the container.
         self.container.start()
+
+        start = time.time()
+        while not self.container.accessible:
+            self.debug('Container not accessible, retrying.')
+            if time.time() - start > self.conf.startup_timeout:
+                self.err("Could not connect to container.")
+                return False
+            time.sleep(1)
+
         dns.refresh()
         self.info("Successfully started container.")
         return True
@@ -403,7 +414,7 @@ class Dork:
                 if matched:
                     self.debug("Matched %s in %s.", matched, role.name)
                     tags += matched
-            self.info("Applying % to update.", tags)
+            self.info("Applying %s to update.", tags)
         else:
             self.warn("Container is new, running full build.")
 
@@ -433,6 +444,7 @@ class Dork:
             self.container.start()
 
         self.info("Update successful.")
+        return True
 
     def build(self):
         """
@@ -495,12 +507,12 @@ class Dork:
         if self.mode == Mode.SERVER:
             self.info("Automatic server cleanup, using project scope.")
             containers = [c for c in Container.list()
-                          if c.project == self.project
-                          and c.instance == self.instance]
+                          if c.project == self.project]
         else:
             self.info("Instance scope cleanup.")
             containers = [c for c in Container.list()
-                          if c.project == self.project]
+                          if c.project == self.project
+                          and c.instance == self.instance]
 
         # Add containers to removable that are ancestors of other ones.
         for container in containers:
@@ -512,13 +524,16 @@ class Dork:
         # Remove containers. If in Server mode, remove source and build
         # directories too.
         for remove in removable:
-            if self.mode == Mode.SERVER:
-                self.debug("Removing directory %s.", remove.source)
-                shutil.rmtree(remove.source)
-                self.debug("Removing directory %s.", remove.build)
-                shutil.rmtree(remove.build)
             self.debug("Removing %s", remove)
+            remove.stop()
             remove.remove()
+            if self.mode == Mode.SERVER:
+                if os.path.exists(remove.source):
+                    self.debug("Removing directory %s.", remove.source)
+                    shutil.rmtree(remove.source)
+                if os.path.exists(remove.build):
+                    self.debug("Removing directory %s.", remove.build)
+                    shutil.rmtree(remove.build)
         self.info("Cleanup successfull, removed %s containers.", len(removable))
 
     def commit(self):
@@ -613,6 +628,8 @@ class Dork:
 
     def __is_removable(self, container, containers):
         commit = Commit(container.hash, self.repository)
+        if container.id == self.container.id:
+            return False
         for c in containers:
             if Commit(c.hash, self.repository) > commit:
                 return True

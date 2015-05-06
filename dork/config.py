@@ -139,6 +139,17 @@ class Config:
         return self.__default('max_containers', 0)
 
     @property
+    def startup_timeout(self):
+        """
+        Number of seconds startup process tries to ssh-connect to a
+        container before it fails.
+        If set to 0, connection check is omitted.
+
+        :rtype: int
+        """
+        return self.__default('startup_timeout', 5)
+
+    @property
     def log_level(self):
         """
         The loglevel for dork interal logs.
