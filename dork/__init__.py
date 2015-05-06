@@ -18,7 +18,7 @@ def main():
         help="""
         Change the working directory.
         """)
-    parser.set_defaults(repository=os.getcwd())
+    parser.set_defaults(directory=os.getcwd())
 
     # Repository argument
     parser.add_argument(
@@ -39,7 +39,6 @@ def main():
 
     def func_status(params):
         config.config_defaults({'log_level': params.logging})
-        dorks = [do for do in Dork.scan(params.repository)]
         rows = [[
             'Name',
             'Directory',
@@ -47,8 +46,7 @@ def main():
             'State',
             'Mode',
         ]]
-        directory = params.repository
-        for d in Dork.scan(directory):
+        for d in Dork.scan(params.directory):
             rows.append([
                 d.name,
                 d.repository.directory,
@@ -57,7 +55,9 @@ def main():
                 d.mode.colored()
             ])
         table = AsciiTable(rows)
-        print(table.table)
+        table.outer_border = False
+        table.inner_column_border = False
+        print("\n" + table.table + "\n")
         return 0
 
     cmd_status.set_defaults(func=func_status)
@@ -71,20 +71,19 @@ def main():
 
     def func_info(params):
         config.config_defaults({'log_level': params.logging})
-        directory = params.repository
-        for d in Dork.scan(directory):
-            data = [
-                ['Project', d.project],
-                ['Instance', d.instance],
-                ['Roles', ', '.join([
-                    "%s (%s)" % (role.name, ', '.join(patterns))
-                    for role, patterns in d.roles.iteritems()])],
-                ['Directory', d.repository.directory],
-                ['HEAD', d.repository.current_commit.message],
-                ['Mode', d.mode.colored()],
-                ['State', d.state.colored()],
-                ['Status', d.status.colored()],
-                ]
+        data = []
+        for d in Dork.scan(params.directory):
+            data.append(['---------------'])
+            data.append(['Project', d.project])
+            data.append(['Instance', d.instance])
+            data.append(['Roles', ', '.join([
+                "%s (%s)" % (role.name, ', '.join(patterns))
+                for role, patterns in d.roles.iteritems()])])
+            data.append(['Directory', d.repository.directory])
+            data.append(['HEAD', d.repository.current_commit.message])
+            data.append(['Mode', d.mode.colored()])
+            data.append(['State', d.state.colored()])
+            data.append(['Status', d.status.colored()])
             if d.status == Status.DIRTY:
                 current = d.repository.current_commit
                 commit = Commit(d.container.hash, d.repository)
@@ -95,10 +94,13 @@ def main():
                     data.append(['Update tags', ', '.join(d.tags)])
                 else:
                     data.append(['Update tags', 'None'])
+            data.append([''])
 
-            table = AsciiTable(data)
-            table.inner_heading_row_border = False
-            print(table.table)
+        table = AsciiTable(data)
+        table.outer_border = False
+        table.inner_column_border = False
+        table.inner_heading_row_border = False
+        print("\n" + table.table)
         return 0
 
     cmd_info.set_defaults(func=func_info)
@@ -114,7 +116,7 @@ def main():
 
     def func_inventory(params):
         inventory = {}
-        for d in Dork.scan(params.repository):
+        for d in Dork.scan(params.directory):
             if d.state == State.RUNNING:
                 if d.project not in inventory:
                     inventory[d.project] = {
@@ -139,7 +141,7 @@ def main():
 
     def func_create(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.repository):
+        for d in Dork.scan(params.directory):
             if not d.create():
                 return -1
 
@@ -157,8 +159,8 @@ def main():
 
     def func_start(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.repository):
-            if not d.start():
+        for d in Dork.scan(params.directory):
+            if not (d.create() and d.start()):
                 return -1
 
     cmd_start.set_defaults(func=func_start)
@@ -175,8 +177,8 @@ def main():
 
     def func_update(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.repository):
-            if not d.update():
+        for d in Dork.scan(params.directory):
+            if not (d.create() and d.start() and d.update()):
                 return -1
 
 
@@ -193,7 +195,7 @@ def main():
 
     def func_update(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.repository):
+        for d in Dork.scan(params.directory):
             if not d.build():
                 return -1
 
@@ -210,7 +212,7 @@ def main():
 
     def func_stop(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.repository):
+        for d in Dork.scan(params.directory):
             if not d.stop():
                 return -1
 
@@ -227,7 +229,7 @@ def main():
 
     def func_remove(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.repository):
+        for d in Dork.scan(params.directory):
             if not d.remove():
                 return -1
 
@@ -244,7 +246,7 @@ def main():
 
     def func_boot(params):
         config.config_defaults({'log_level': params.logging})
-        for d in Dork.scan(params.repository):
+        for d in Dork.scan(params.directory):
             if d.container:
                 if not d.start():
                     return -1

@@ -580,6 +580,7 @@ class Dork:
             self.debug("Removed %s.", i.id)
 
         self.info("Removed %s dangling images.", dangling_count)
+        return 0
 
     # ======================================================================
     # PRIVATE HELPERS
