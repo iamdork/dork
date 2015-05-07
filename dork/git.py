@@ -205,7 +205,7 @@ def _is_ancestor(directory, ancestor, descendant):
         else:
             __ancestors[key] = call(
                 ['git', 'merge-base', '--is-ancestor', ancestor, descendant],
-                cwd=directory) is 0
+                cwd=directory, stdout=PIPE, stderr=PIPE) is 0
     return __ancestors[key]
 
 

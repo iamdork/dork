@@ -90,8 +90,28 @@ class Dork:
         :type directory: str
         :rtype list[Dork]
         """
-        for repo in Repository.scan(directory):
-            yield Dork(repo)
+        def _compare(a, b):
+            """
+            :type a: Dork
+            :type b: Dork
+            """
+            if a.project != b.project:
+                if a.name < b.name:
+                    return -1
+                elif a.name > b.name:
+                    return 1
+                else:
+                    return 0
+            else:
+                if a.repository.current_commit < b.repository.current_commit:
+                    return -1
+                elif a.repository.current_commit > b.repository.current_commit:
+                    return 1
+                else:
+                    return 0
+
+        return sorted([
+            Dork (repo) for repo in Repository.scan(directory)], cmp=_compare)
 
     @classmethod
     def enforce_max_containers(cls):
@@ -572,6 +592,7 @@ class Dork:
                     self.debug("Removing directory %s.", remove.build)
                     shutil.rmtree(remove.build)
         self.info("Cleanup successfull, removed %s containers.", len(removable))
+        return True
 
     def commit(self):
         """
