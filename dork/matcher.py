@@ -14,7 +14,7 @@ class Role:
 
     @classmethod
     def list(cls):
-        return get_roles()
+        return [Role(name, meta) for name, meta in get_roles().iteritems()]
 
     @property
     def includes(self):
@@ -44,6 +44,7 @@ class Role:
         return len(self.matching_patterns(repository)) > 0
 
     __matching_patterns = None
+
     def matching_patterns(self, repository):
         """
         :type repository: Repository
@@ -107,22 +108,27 @@ class Role:
         return list(set(tags))
 
 
-def get_roles():
+__roles = None
+def get_roles(clear=True):
     """
-    :rtype: list[Role]
+    :rtype: dict[str, dict]
     """
-    for roles_dir in config.config().ansible_roles_path:
-        for role in os.listdir(roles_dir):
-            meta_file = "%s/%s/meta/main.yml" % (roles_dir, role)
+    global __roles
+    if __roles is None or clear:
+        __roles = {}
+        for roles_dir in config.config().ansible_roles_path:
+            for role in os.listdir(roles_dir):
+                meta_file = "%s/%s/meta/main.yml" % (roles_dir, role)
 
-            # Skip if name starts with a . or meta file doesn't exist.
-            if role.startswith('.') or not os.path.isfile(meta_file):
-                continue
-            meta = yaml.load(open(meta_file, 'r'))
-            """:type: dict """
+                # Skip if name starts with a . or meta file doesn't exist.
+                if role.startswith('.') or not os.path.isfile(meta_file):
+                    continue
+                meta = yaml.load(open(meta_file, 'r'))
+                """:type: dict """
 
-            # Skip if this is not a dork-aware role
-            if 'dork' not in meta:
-                continue
+                # Skip if this is not a dork-aware role
+                if 'dork' not in meta:
+                    continue
 
-            yield Role(role, meta)
+                __roles[role] = meta
+    return __roles
