@@ -170,6 +170,23 @@ def main():
     cmd_start.set_defaults(func=func_start)
 
     # ======================================================================
+    # clean command
+    # ======================================================================
+    cmd_clean = subparsers.add_parser(
+        'clean',
+        help="""
+        Clean unused containers.
+        """)
+
+    def func_clean(params):
+        config.config_defaults({'log_level': params.logging})
+        for d in Dork.scan(os.path.abspath(params.directory)):
+            if d.container:
+                d.clean()
+
+    cmd_clean.set_defaults(func=func_clean)
+
+    # ======================================================================
     # update command
     # ======================================================================
     cmd_update = subparsers.add_parser(
