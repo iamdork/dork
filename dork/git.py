@@ -117,12 +117,15 @@ class Repository:
     def scan(cls, directory):
         return get_repositories(directory)
 
+    __current_commit = None
     @property
     def current_commit(self):
         """
         :rtype: Commit
         """
-        return Commit(_current_commit(self.directory), self)
+        if self.__current_commit is None:
+            self.__current_commit = Commit(_current_commit(self.directory), self)
+        return self.__current_commit
 
     def get_commit(self, commit_hash):
         return Commit(commit_hash, self)
@@ -181,6 +184,7 @@ def _commit_message(directory, commit):
         , cwd=directory).strip()
 
 
+__ancestors = {}
 def _is_ancestor(directory, ancestor, descendant):
     """
     :type directory: str
@@ -188,18 +192,24 @@ def _is_ancestor(directory, ancestor, descendant):
     :type descendant: str
     :rtype: bool
     """
-    if ancestor == descendant:
-        return False
-    elif ancestor == "new":
-        return True
-    elif descendant == "new":
-        return False
-    else:
-        return call(
-            ['git', 'merge-base', '--is-ancestor', ancestor, descendant],
-            cwd=directory) is 0
+    key = '%s:%s:%s' %(directory, ancestor, descendant)
+
+    global __ancestors
+    if key not in __ancestors:
+        if ancestor == descendant:
+            return False
+        elif ancestor == "new":
+            return True
+        elif descendant == "new":
+            return False
+        else:
+            __ancestors[key] = call(
+                ['git', 'merge-base', '--is-ancestor', ancestor, descendant],
+                cwd=directory) is 0
+    return __ancestors[key]
 
 
+__commit_diffs = {}
 def _commit_diff(directory, a, b):
     """
     :type directory: str
@@ -207,12 +217,16 @@ def _commit_diff(directory, a, b):
     :type b: str
     :rtype: list
     """
-    hashes = check_output(
-        ['git', '--no-pager', 'log', '--format=%H',
-         a + '...' + b], cwd=directory).splitlines()
-    return hashes
+    key = '%s:%s:%s' % (directory, a, b)
+    global __commit_diffs
+    if key not in __commit_diffs:
+        __commit_diffs[key] = check_output(
+            ['git', '--no-pager', 'log', '--format=%H',
+             a + '...' + b], cwd=directory).splitlines()
+    return __commit_diffs[key]
 
 
+__file_diffs = {}
 def _file_diff(directory, a, b):
     """
     :type directory: str
@@ -220,6 +234,10 @@ def _file_diff(directory, a, b):
     :type b: str
     :rtype: list
     """
-    return check_output(
-        ['git', 'diff', '--name-only', a, b],
-        cwd=directory).splitlines()
+    key = '%s:%s:%s' % (directory, a, b)
+    global __file_diffs
+    if key not in __file_diffs:
+        __file_diffs[key] = check_output(
+            ['git', 'diff', '--name-only', a, b],
+            cwd=directory).splitlines()
+    return __file_diffs[key]
