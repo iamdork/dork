@@ -260,17 +260,26 @@ class BaseImage:
 # ======================================================================
 # PUBLIC METHODS
 # ======================================================================
-def containers():
-    for c in __get('containers/json', query={'all': 1}):
-        yield Container(__get('containers/%s/json' % c['Id']))
+__containers = None
+def containers(clear=False):
+    global __containers
+    if __containers is None or clear:
+        __containers = [Container(__get('containers/%s/json' % c['Id']))
+                          for c in __get('containers/json', query={'all': 1})]
+    return __containers
 
 
-def images():
-    for i in __get('images/json'):
-        data = __get('images/%s/json' % i['Id'])
-        if 'RepoTags' in i:
-            data['RepoTags'] = i['RepoTags']
-            yield Image(data)
+__images = None
+def images(clear=False):
+    global __images
+    if __images is None or clear:
+        __images = []
+        for i in __get('images/json'):
+            data = __get('images/%s/json' % i['Id'])
+            if 'RepoTags' in i:
+                data['RepoTags'] = i['RepoTags']
+                __images.append(Image(data))
+    return __images
 
 
 def create(name, image, volumes):
@@ -291,6 +300,7 @@ def create(name, image, volumes):
         query={'name': name},
         data=data,
         codes=(201,))
+    containers(True)
 
 
 def _dangling_images():
@@ -306,20 +316,24 @@ def _dangling_images():
 # ======================================================================
 def _container_start(cid):
     __post('containers/%s/start' % cid, codes=(204, 304))
+    containers(True)
 
 
 def _container_stop(cid):
     __post('containers/%s/stop' % cid, codes=(204, 304))
+    containers(True)
 
 
 def _container_remove(cid):
     __delete('containers/%s' % cid, codes=(204,))
+    containers(True)
 
 
 def _container_rename(cid, name):
     __post(
         'containers/%s/rename' % cid,
         query={'name': name}, codes=(204,))
+    containers(True)
 
 
 def _container_commit(cid, repo):
@@ -327,6 +341,7 @@ def _container_commit(cid, repo):
         'commit',
         query={'container': cid, 'repo': repo},
         codes=(201,))
+    images(True)
 
 
 def _container_accessible(address):
@@ -342,6 +357,7 @@ def _container_accessible(address):
 
 def _image_remove(iid):
     __delete('images/%s' % iid, codes=(200,))
+    images(True)
 
 
 # ======================================================================
