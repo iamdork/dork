@@ -2,7 +2,7 @@ import config
 from git import Repository
 import os
 import yaml
-from glob import glob
+from glob2 import glob
 from fnmatch import fnmatch
 import re
 
