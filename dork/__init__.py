@@ -10,13 +10,13 @@ def main():
     """Dork CLI interface"""
     parser = argparse.ArgumentParser(
         prog="dork",
-        description="Dork - intelligent development containers.")
+        description="Dork - development workflow for everyone")
 
     # Repository argument
     parser.add_argument(
         '--directory', '-d',
         help="""
-        Change the working directory.
+        Set the working directory.
         """)
     parser.set_defaults(directory=os.getcwd())
 
@@ -35,7 +35,7 @@ def main():
     # ======================================================================
     cmd_status = subparsers.add_parser(
         'status',
-        help='Display a summary of the dorks status.')
+        help='Display a summary of the current status.')
 
     def func_status(params):
         config.config_defaults({'log_level': params.logging})
@@ -69,7 +69,7 @@ def main():
     # ======================================================================
     cmd_info = subparsers.add_parser(
         'info',
-        help='Display a summary of the dorks status.')
+        help='Display detailed information.')
 
     def func_info(params):
         config.config_defaults({'log_level': params.logging})

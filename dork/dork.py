@@ -184,7 +184,7 @@ class Dork:
         """
         if self.project == self.instance:
             return Mode.WORKSTATION
-        if self.instance == self.repository.branch:
+        if self.repository.directory.replace("%s/%s/" % (self.conf.host_source_directory, self.project), '') == self.repository.branch:
             return Mode.SERVER
         return Mode.MANUAL
 
