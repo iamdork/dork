@@ -268,7 +268,8 @@ class Dork:
         patterns = []
         for name, role in self.roles.iteritems():
             for pattern in role.patterns:
-                patterns.append(pattern)
+                if pattern not in patterns:
+                    patterns.append(pattern)
         return patterns
 
     @property
@@ -277,7 +278,8 @@ class Dork:
         patterns = []
         for name, role in self.roles.iteritems():
             for pattern in role.matching_patterns(self.repository):
-                patterns.append(pattern)
+                if pattern not in patterns:
+                    patterns.append(pattern)
         return patterns
 
     @property

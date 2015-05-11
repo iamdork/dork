@@ -53,6 +53,7 @@ class Role:
         if self.__matching_patterns is None:
             self.__matching_patterns = []
             # loop over defined patterns and return a list of matches.
+            included_matches = []
             for pattern, filepatterns in self.patterns.iteritems():
                 if isinstance(filepatterns, list):
                     # If filepatterns is a list, check them all.
@@ -85,8 +86,12 @@ class Role:
                         self.__matching_patterns.append(pattern)
                 elif isinstance(filepatterns, bool):
                     # If filepatterns is a boolean value, match the pattern accordingly.
-                   if filepatterns:
+                   if filepatterns and pattern == 'default':
                        self.__matching_patterns.append(pattern)
+                   elif filepatterns:
+                       included_matches.append(pattern)
+            if len(self.__matching_patterns) > 0:
+                self.__matching_patterns += included_matches
 
         return self.__matching_patterns
 
