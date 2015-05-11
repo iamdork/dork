@@ -238,7 +238,6 @@ class Dork:
         redundant = []
 
         roles = dict(self.roles)
-        print(roles.keys())
         for name, role in self.roles.iteritems():
             for n, r in roles.iteritems():
                 if r.name in role.includes and r.name not in redundant:
