@@ -86,6 +86,8 @@ def main():
             data.append(['HEAD', d.repository.current_commit.message])
             data.append(['Mode', d.mode.colored()])
             data.append(['State', d.state.colored()])
+            if d.state == State.RUNNING:
+                data.append(['Address', d.container.address])
             data.append(['Status', d.status.colored()])
             if d.status == Status.DIRTY:
                 current = d.repository.current_commit
