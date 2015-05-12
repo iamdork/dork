@@ -127,7 +127,7 @@ class Config:
 
         :rtype: str
         """
-        return self.__default('dork_user', 'dork')
+        return self.__default('dork_user', 'root')
 
     @property
     def max_containers(self):

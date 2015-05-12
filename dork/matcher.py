@@ -86,7 +86,7 @@ class Role:
                         self.__matching_patterns.append(pattern)
                 elif isinstance(filepatterns, bool):
                     # If filepatterns is a boolean value, match the pattern accordingly.
-                   if filepatterns and pattern == 'default':
+                   if filepatterns and pattern == 'global':
                        self.__matching_patterns.append(pattern)
                    elif filepatterns:
                        included_matches.append(pattern)

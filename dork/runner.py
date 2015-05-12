@@ -8,7 +8,7 @@ from config import config
 def apply_roles(roles, ip, extra_vars=None, tags=None, skip=None):
     # Create the temporary inventory
     inventory = tempfile.NamedTemporaryFile(delete=False)
-    inventory.write("%s ansible_ssh_user=%s dork_user=%s ansible_sudo=yes" % (
+    inventory.write("%s ansible_ssh_user=%s dork_user=%s" % (
         ip, config().dork_user, config().dork_user) + '\n')
     inventory.close()
 
