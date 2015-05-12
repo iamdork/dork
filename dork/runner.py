@@ -29,6 +29,13 @@ def apply_roles(roles, ip, extra_vars=None, tags=None, skip=None):
 
 
 def run_playbook(inventory, playbook, extra_vars=None, tags=None, skip=None):
+    """
+    :type playbook: str
+    :type extra_vars: dict
+    :type tags: list[str]
+    :type skip: list[str]
+    :return:
+    """
 
     command = ['ansible-playbook', '-i', inventory, playbook]
 
@@ -44,12 +51,12 @@ def run_playbook(inventory, playbook, extra_vars=None, tags=None, skip=None):
     # Add --tags flag if available.
     if tags:
         command.append('--tags')
-        command.append(','.join(tags))
+        command.append(','.join([ t for t in tags if t != 'default' ]))
 
     # Add --skip-tags flag if available.
     if skip:
         command.append('--skip-tags')
-        command.append(','.join(skip))
+        command.append(','.join([s for s in skip if s != 'default' ]))
 
     # Run ansible
     result = subprocess.call(command)
