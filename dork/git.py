@@ -8,8 +8,12 @@ def _listdir(path):
     else:
         return os.listdir(path)
 
+def _islink(path):
+    return os.path.islink(path) and not os.path.isdir(path)
+
 class GitGlobber(Globber):
     listdir = staticmethod(_listdir)
+    islink = staticmethod(_islink)
 
 
 git_globber = GitGlobber()
@@ -25,7 +29,7 @@ def get_repositories(directory):
     else:
         repositories = [subdir[:-5] for subdir in git_globber.glob(directory + '/**/.git')]
         for d in repositories:
-            if not any([(r in d and d is not r) for r in repositories]):
+            if not any([((r + '/') in d and d is not r) for r in repositories]):
                 yield Repository(d)
 
 
