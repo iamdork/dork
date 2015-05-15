@@ -130,6 +130,20 @@ class Config:
         return self.__default('dork_user', 'root')
 
     @property
+    def global_roles(self):
+        """
+        Name of a role that provides ssh functionality.
+        :return:
+        """
+        roles = self.__default('global_roles', None)
+        if roles is None:
+            return []
+        else:
+            rlist = roles.split(',')
+            map(str.strip, rlist)
+            return rlist
+
+    @property
     def max_containers(self):
         """
         The maximum amount of containers running simultaneously.
@@ -158,6 +172,13 @@ class Config:
         """
         return self.__default('log_level', 'warn')
 
+    @property
+    def global_vars(self):
+        if self.__p and 'global' in self.__p.sections():
+            return {key: value for key, value in self.__p.items('global')}
+        else:
+            return {}
+
     def project_vars(self, project):
         """
         Retrieve project specific settings as dictionary.
@@ -165,7 +186,7 @@ class Config:
         :param str project:
         :rtype: dict[str,str]
         """
+        vars = self.global_vars
         if self.__p and project in self.__p.sections():
-            return {key: value for key, value in self.__p.items(project)}
-        else:
-            return {}
+            vars.update(self.__p.items(project))
+        return vars

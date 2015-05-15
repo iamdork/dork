@@ -80,6 +80,7 @@ def main():
             data.append(['Instance', d.instance])
             data.append(['Roles', ', '.join([
                 name for name, role in d.executable_roles.iteritems()])])
+            data.append(['Variables', json.dumps(d.variables)])
             data.append(['Patterns', ', '.join(d.matching_patterns)])
             data.append(['Directory', d.repository.directory])
             data.append(['Branch', d.repository.branch])

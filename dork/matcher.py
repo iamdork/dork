@@ -131,6 +131,19 @@ def get_roles(clear=True):
                 meta = yaml.load(open(meta_file, 'r'))
                 """:type: dict """
 
+                if role in config.config().global_roles:
+                    if 'dork' not in meta:
+                        meta['dork'] = {}
+                    if 'matches' not in meta['dork']:
+                        meta['dork']['matches'] = {}
+
+                    if not isinstance(meta['dork']['matches'], dict):
+                        meta['dork']['matches'] = {
+                            'default': meta['dork']['matches']
+                        }
+
+                    meta['dork']['matches']['global'] = True
+
                 # Skip if this is not a dork-aware role
                 if 'dork' not in meta:
                     continue

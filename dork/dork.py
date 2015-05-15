@@ -531,9 +531,13 @@ class Dork:
         self.debug("Build successful.")
         return True
 
+    @property
+    def variables(self):
+        return self.conf.project_vars(self.project)
+
     def __play(self, tags=None):
         # Retrieve extra variables from configuration.
-        extra_vars = self.conf.project_vars(self.project)
+        extra_vars = self.variables
         self.debug("Variables: %s", extra_vars)
 
         # Iterate over matching roles and build a list of tags that have NOT
