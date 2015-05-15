@@ -10,6 +10,7 @@ from subprocess import check_output
 from datetime import datetime
 from dateutil.parser import parse as parse_date
 import socket
+from paramiko.ssh_exception import AuthenticationException
 
 class Container:
     """
@@ -349,7 +350,7 @@ def _container_accessible(address):
     client.load_system_host_keys()
     client.set_missing_host_key_policy(AutoAddPolicy())
     try:
-        client.connect(address, username=config().dork_user, look_for_keys=True)
+        client.connect(address, username=config().dork_user, key_filename='/etc/dork-keys/key')
         return True
     except socket.error:
         return False
