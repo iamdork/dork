@@ -465,6 +465,7 @@ class Dork:
 
         # Iterate over matching roles to generate list of necessary tags.
         tags = []
+        was_new = False
         if not self.status == Status.NEW:
             container_commit = Commit(self.container.hash, self.repository)
             changes = self.repository.current_commit % container_commit
@@ -476,6 +477,7 @@ class Dork:
                     tags += matched
             self.info("Applying %s to update.", tags)
         else:
+            was_new = True
             self.warn("Container is new, running full build.")
 
         # If there are any tags, run the update.
@@ -503,6 +505,10 @@ class Dork:
             self.container.stop()
             self.container.start()
             dns.refresh()
+
+        if was_new:
+            self.info('First build of new project. Committing image.')
+            self.commit()
 
         self.info("Update successful.")
         return True
