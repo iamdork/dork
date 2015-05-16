@@ -131,9 +131,10 @@ def get_roles(clear=True):
                 meta = yaml.load(open(meta_file, 'r'))
                 """:type: dict """
 
-                if role in config.config().global_roles:
+                if any(role in s for s in config.config().global_roles):
                     if 'dork' not in meta:
                         meta['dork'] = {}
+
                     if 'build_triggers' not in meta['dork']:
                         meta['dork']['build_triggers'] = {}
 
