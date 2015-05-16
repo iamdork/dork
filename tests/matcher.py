@@ -53,21 +53,21 @@ dependencies:
 - dep_b
 - { role: dep_a }
 dork:
-  matches:
+  build_triggers:
   - index.php
 """)
 
 _roles_complex = yaml.load("""
 dependencies: []
 dork:
-  matches:
+  build_triggers:
     pattern_a:
     - index.php
     - test.php
     pattern_b:
     - "*.txt"
     - "*.php"
-  tags:
+  update_triggers:
   - "test/**/*.txt": [a,b]
   - "test/**": [c]
 """)
@@ -75,7 +75,7 @@ dork:
 _roles_content = yaml.load("""
 dependencies: []
 dork:
-  matches:
+  build_triggers:
     drupal_7:
     - "*.info": "core\\\s*=\\\s*7.x"
 """)

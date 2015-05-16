@@ -31,9 +31,9 @@ class Role:
     @property
     def patterns(self):
         """:rtype: dict[str,list]"""
-        if 'matches' not in self.__meta['dork']:
+        if 'build_triggers' not in self.__meta['dork']:
             return {}
-        patterns = self.__meta['dork']['matches']
+        patterns = self.__meta['dork']['build_triggers']
 
         # if matches is a simple list, create a default pattern
         if not isinstance(patterns, dict):
@@ -103,9 +103,9 @@ class Role:
         """
         # skip if there are no tags patterns defined
         tags = []
-        if 'tags' not in self.__meta['dork']:
+        if 'update_triggers' not in self.__meta['dork']:
             return []
-        for tagpattern in self.__meta['dork']['tags']:
+        for tagpattern in self.__meta['dork']['update_triggers']:
             for pattern, taglist in tagpattern.iteritems():
                 for changed_file in changeset:
                     if fnmatch(changed_file, pattern):
@@ -134,15 +134,15 @@ def get_roles(clear=True):
                 if role in config.config().global_roles:
                     if 'dork' not in meta:
                         meta['dork'] = {}
-                    if 'matches' not in meta['dork']:
-                        meta['dork']['matches'] = {}
+                    if 'build_triggers' not in meta['dork']:
+                        meta['dork']['build_triggers'] = {}
 
-                    if not isinstance(meta['dork']['matches'], dict):
-                        meta['dork']['matches'] = {
-                            'default': meta['dork']['matches']
+                    if not isinstance(meta['dork']['build_triggers'], dict):
+                        meta['dork']['build_triggers'] = {
+                            'default': meta['dork']['build_triggers']
                         }
 
-                    meta['dork']['matches']['global'] = True
+                    meta['dork']['build_triggers']['global'] = True
 
                 # Skip if this is not a dork-aware role
                 if 'dork' not in meta:
