@@ -345,9 +345,15 @@ class Dork:
             self.debug("No container found, building from %s", image)
         else:
             # No starting point available. Building from base image.
-            base = self.conf.base_image
-            self.warn("No image or container, starting from %s", base)
-            image = BaseImage(self.project)
+            if self.repository.branch == self.conf.root_branch:
+                base = self.conf.base_image
+                self.warn("No image or container, starting from %s", base)
+                image = BaseImage(self.project)
+            else:
+                self.err(
+                    "No valid starting point found. Either branch \"%s\" needs to be built first or \"%s\" has to be rebased.",
+                    self.conf.root_branch, self.repository.branch)
+                return False
 
         # Build correct container name.
         container_name = "%s.%s.%s" % (self.project, self.instance, image.hash)

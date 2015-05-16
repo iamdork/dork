@@ -54,6 +54,14 @@ class Config:
             return default
 
     @property
+    def root_branch(self):
+        """
+        The branch considered as "stable".
+        :rtype: str
+        """
+        return self.__default('root_branch', 'master')
+
+    @property
     def host_source_directory(self):
         """
         The directory containing the project sources on the host.
