@@ -10,7 +10,6 @@ from subprocess import check_output
 from datetime import datetime
 from dateutil.parser import parse as parse_date
 import socket
-from paramiko.ssh_exception import AuthenticationException
 
 class Container:
     """

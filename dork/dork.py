@@ -1,12 +1,13 @@
 import config
 from git import Repository, Commit
-from docker import Container, Image, BaseImage
+from docker import Container, Image, BaseImage, DockerException
 from matcher import Role
 import dns
 import runner
 import logging
 from enum import Enum
 import shutil
+import subprocess
 import colorclass
 import time
 import os
@@ -575,6 +576,8 @@ class Dork:
         """
         removable = []
         """:type: list[Container]"""
+        removable_images = []
+        """:type: list[Image]"""
 
         self.debug("Attempting cleanup.")
 
@@ -592,8 +595,8 @@ class Dork:
         # Add containers to removable that are ancestors of other ones.
         for container in containers:
             if self.__is_removable(container, containers):
+                removable_images.append(container.image)
                 removable.append(container)
-
         self.debug("Removing: %s", removable)
 
         # Remove containers. If in Server mode, remove source and build
@@ -608,7 +611,17 @@ class Dork:
                     shutil.rmtree(remove.source)
                 if os.path.exists(remove.build):
                     self.debug("Removing directory %s.", remove.build)
-                    shutil.rmtree(remove.build)
+                    call = ['sudo', 'rm', '-rf', remove.build]
+                    if subprocess.call(call) != 0:
+                        self.warn("Unable to remove build directory %s.", remove.build)
+
+        for image in Image.list():
+            if any(image.id in i for i in removable_images):
+                try:
+                    image.delete()
+                except DockerException:
+                    pass
+
         self.info("Cleanup successfull, removed %s containers.", len(removable))
         return True
 
@@ -705,6 +718,8 @@ class Dork:
     def __is_removable(self, container, containers):
         commit = Commit(container.hash, self.repository)
         if container.id == self.container.id:
+            return False
+        if container.repository.branch == self.conf.root_branch:
             return False
         for c in containers:
             if Commit(c.hash, self.repository) > commit:
