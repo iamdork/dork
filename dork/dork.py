@@ -123,11 +123,16 @@ class Dork:
         # Stop containers until maximum amount of simultaneous containers is
         # met.
         max_containers = config.config().max_containers
+        stop_count = 0
         if max_containers > 0:
             running = [c for c in Container.list() if c.running]
-            running.sort(key=lambda cont: cont.time_created.total_seconds())
+            running.sort(key=lambda cont: cont.time_started)
+            running.reverse()
             while len(running) > max_containers:
-                running.pop().stop()
+                stop = running.pop()
+                logging.debug("Too many containers running. Stopping %s.", stop)
+                stop.stop()
+        logging.info("Stopped %s containers to respect limit of %s running containers.", stop_count, max_containers)
 
     # ======================================================================
     # DOCKER COMPONENTS
@@ -420,6 +425,8 @@ class Dork:
 
         dns.refresh()
         self.info("Successfully started container.")
+        # Now, stop containers until limit is met.
+        Dork.enforce_max_containers()
         return True
 
     def stop(self):
