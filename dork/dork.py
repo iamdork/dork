@@ -375,7 +375,7 @@ class Dork:
 
         # Create the container
         Container.create(container_name, image.name, container_volumes)
-        self.info("Successfully created %s from %s.", container, image)
+        self.info("Successfully created %s from %s.", container_name, image.name)
         return True
 
     def start(self):
@@ -472,7 +472,6 @@ class Dork:
 
         # Iterate over matching roles to generate list of necessary tags.
         tags = []
-        was_new = False
         if not self.status == Status.NEW:
             container_commit = Commit(self.container.hash, self.repository)
             changes = self.repository.current_commit % container_commit
@@ -484,7 +483,6 @@ class Dork:
                     tags += matched
             self.info("Applying %s to update.", tags)
         else:
-            was_new = True
             self.warn("Container is new, running full build.")
 
         # If there are any tags, run the update.
@@ -513,9 +511,14 @@ class Dork:
             self.container.start()
             dns.refresh()
 
-        if was_new:
-            self.info('First build of new project. Committing image.')
+        if self.repository.branch == self.conf.root_branch and self.mode == Mode.WORKSTATION:
+            self.info('Branch %s updated. Committing new image.', self.conf.root_branch)
             self.commit()
+        else:
+            self.debug('%s != %s or %s != %s. NOT committing new image.',
+                       self.conf.root_branch, self.repository.branch,
+                       self.mode, Mode.WORKSTATION)
+
 
         self.info("Update successful.")
         return True
@@ -574,11 +577,6 @@ class Dork:
         :return: [True] if the cleanup was successfull.
         :rtype: bool
         """
-        removable = []
-        """:type: list[Container]"""
-        removable_images = []
-        """:type: list[Image]"""
-
         self.debug("Attempting cleanup.")
 
         # Select containers to operate on, based on current Mode.
@@ -593,36 +591,55 @@ class Dork:
                           and c.instance == self.instance]
 
         # Add containers to removable that are ancestors of other ones.
-        for container in containers:
-            if self.__is_removable(container, containers):
-                removable_images.append(container.image)
-                removable.append(container)
-        self.debug("Removing: %s", removable)
+        removable_containers = [c for c in containers
+                     if c.id != self.container.id
+                     and self.__is_removable(c, containers)]
 
         # Remove containers. If in Server mode, remove source and build
         # directories too.
-        for remove in removable:
+        for remove in removable_containers:
+            self.debug("Removing: %s", remove)
+            # Never remove the root branch container in server mode.
+            if remove.repository.branch == self.conf.root_branch and self.mode == Mode.SERVER:
+                continue
+
+            # Remove the container.
             self.debug("Removing %s", remove)
             remove.stop()
             remove.remove()
+
             if self.mode == Mode.SERVER:
+                # Remove the source directory only if in server mode.
                 if os.path.exists(remove.source):
                     self.debug("Removing directory %s.", remove.source)
                     shutil.rmtree(remove.source)
-                if os.path.exists(remove.build):
-                    self.debug("Removing directory %s.", remove.build)
-                    call = ['sudo', 'rm', '-rf', remove.build]
-                    if subprocess.call(call) != 0:
-                        self.warn("Unable to remove build directory %s.", remove.build)
+                # Try to remove the image if in server mode.
+                for image in Image.list():
+                    if image.id == remove.image and image.name != self.conf.base_image:
+                        try:
+                            image.delete()
+                        except DockerException, exc:
+                            pass
 
-        for image in Image.list():
-            if any(image.id in i for i in removable_images):
-                try:
-                    image.delete()
-                except DockerException:
-                    pass
+            # Remove the build directory.
+            if os.path.exists(remove.build):
+                self.debug("Removing directory %s.", remove.build)
+                call = ['sudo', 'rm', '-rf', remove.build]
+                if subprocess.call(call) != 0:
+                    self.warn("Unable to remove build directory %s.", remove.build)
 
-        self.info("Cleanup successfull, removed %s containers.", len(removable))
+        # Remove images that are ancestors of other images.
+        images = [i for i in Image.list() if i.project == self.project]
+        removable_images = [i for i in images if self.__is_removable(i, images)]
+
+        for remove in removable_images:
+            try:
+                remove.delete()
+            except DockerException:
+                pass
+
+        self.info("Cleanup successfull, removed %s containers and %s images.",
+                  len(removable_containers), len(removable_images))
         return True
 
     def commit(self):
@@ -673,7 +690,7 @@ class Dork:
                 if i.project == self.project:
                     i.delete()
                     image_count += 1
-                    self.debug("Removed %i.", i)
+                    self.debug("Removed %s.", i)
             self.info("Removed %s images.", image_count)
 
         # Remove dangling images.
@@ -715,14 +732,10 @@ class Dork:
             .replace(self.conf.host_source_directory + '/', '') \
             .split('/')
 
-    def __is_removable(self, container, containers):
-        commit = Commit(container.hash, self.repository)
-        if container.id == self.container.id:
-            return False
-        if container.repository.branch == self.conf.root_branch:
-            return False
-        for c in containers:
-            if Commit(c.hash, self.repository) > commit:
+    def __is_removable(self, obj, siblings):
+        commit = Commit(obj.hash, self.repository)
+        for s in siblings:
+            if Commit(s.hash, self.repository) > commit:
                 return True
         return False
 
