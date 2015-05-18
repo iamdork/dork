@@ -749,18 +749,18 @@ class Dork:
     # ======================================================================
     # LOGGING
     # ======================================================================
-    def _log(self, msg):
-        return "[%s] %s" % (self.name, msg)
+    def _log(self, msg, color):
+        return colorclass.Color("{%s}[%s] %s{/%s}" % (color, self.name, msg, color))
 
     def debug(self, msg, *args):
-        self.logger.debug(self._log(msg), *args)
+        self.logger.debug(self._log(msg, 'autoblack'), *args)
 
     def info(self, msg, *args):
-        self.logger.info(self._log(msg), *args)
+        self.logger.info(self._log(msg, 'autogreen'), *args)
 
     def warn(self, msg, *args):
-        self.logger.warn(self._log(msg), *args)
+        self.logger.warn(self._log(msg, 'autoyellow'), *args)
 
     def err(self, msg, *args):
-        self.logger.error(self._log(msg), *args)
+        self.logger.error(self._log(msg, 'autored'), *args)
 
