@@ -47,9 +47,9 @@ class Config:
             try:
                 return self.__p.get('dork', key)
             except NoOptionError:
+                if key in __defaults__:
+                    return __defaults__[key]
                 return default
-        elif key in __defaults__:
-            return __defaults__[key]
         else:
             return default
 
