@@ -163,6 +163,22 @@ class Container:
         return directory
 
     @property
+    def logs(self):
+        """
+        The directory on the host machine, mounted to the containers build
+        directory.
+
+        :rtype: str
+        """
+        directory = None
+        for bind in self.__data['HostConfig']['Binds']:
+            host = bind.split(':')[0]
+            container = bind.split(':')[1]
+            if container == config().dork_log_directory:
+                directory = host
+        return directory
+
+    @property
     def accessible(self):
         """:rtype: bool"""
         if not self.running:

@@ -662,6 +662,13 @@ class Dork:
                 if subprocess.call(call) != 0:
                     self.warn("Unable to remove build directory %s.", remove.build)
 
+            # Remove the logs directory.
+            if os.path.exists(remove.logs):
+                self.debug("Removing directory %s.", remove.logs)
+                call = ['sudo', 'rm', '-rf', remove.logs]
+                if subprocess.call(call) != 0:
+                    self.warn("Unable to remove logs directory %s.", remove.logs)
+
         # Remove images that are ancestors of other images.
         images = [i for i in Image.list() if i.project == self.project]
         removable_images = [i for i in images if self.__is_removable(i, images)]
