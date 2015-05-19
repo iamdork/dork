@@ -148,13 +148,20 @@ def main():
         already exists, nothing happens.
         """)
 
+    # Repository argument
+    cmd_create.add_argument(
+        '--image', '-i',
+        help="""
+        Use a different image to start from.
+        """)
+
     def func_create(params):
         config.config_defaults({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
-            if not d.create():
+            if not d.create(params.image):
                 return -1
 
-    cmd_create.set_defaults(func=func_create)
+    cmd_create.set_defaults(func=func_create, image=False)
 
     # ======================================================================
     # start command
@@ -166,13 +173,20 @@ def main():
         calls [create] if necessary.
         """)
 
+    # Repository argument
+    cmd_start.add_argument(
+        '--image', '-i',
+        help="""
+        Use a different image to start from.
+        """)
+
     def func_start(params):
         config.config_defaults({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
-            if not (d.create() and d.start()):
+            if not (d.create(params.image) and d.start()):
                 return -1
 
-    cmd_start.set_defaults(func=func_start)
+    cmd_start.set_defaults(func=func_start, image=False)
 
     # ======================================================================
     # clean command
@@ -201,31 +215,45 @@ def main():
         necessary steps based on the files changed.
         """)
 
+    # Repository argument
+    cmd_update.add_argument(
+        '--image', '-i',
+        help="""
+        Use a different image to start from.
+        """)
+
     def func_update(params):
         config.config_defaults({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
-            if not (d.create() and d.start() and d.update() and d.clean()):
+            if not (d.create(params.image) and d.start() and d.update() and d.clean()):
                 return -1
 
-    cmd_update.set_defaults(func=func_update)
+    cmd_update.set_defaults(func=func_update, image=False)
 
     # ======================================================================
     # build command
     # ======================================================================
-    cmd_update = subparsers.add_parser(
+    cmd_build = subparsers.add_parser(
         'build',
         help="""
         Runs the full build procedure.
         """)
 
-    def func_update(params):
+    # Repository argument
+    cmd_build.add_argument(
+        '--image', '-i',
+        help="""
+        Use a different image to start from.
+        """)
+
+    def func_build(params):
         config.config_defaults({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.build():
                 return -1
 
 
-    cmd_update.set_defaults(func=func_update)
+    cmd_build.set_defaults(func=func_build, image=False)
     # ======================================================================
     # stop command
     # ======================================================================

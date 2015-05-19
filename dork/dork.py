@@ -298,7 +298,7 @@ class Dork:
     # ======================================================================
     # LIFECYCLE INTERFACE
     # ======================================================================
-    def create(self):
+    def create(self, startimage=False):
         """
         If no matching container is found, a new one will be created. If
         a matching container already exists, nothing happens.
@@ -314,52 +314,68 @@ class Dork:
 
         self.info('No container found, creating a new one.')
 
-        # Retrieve the closest image.
-        image = self.image
+        if startimage:
+            image = False
+            for i in Image.list():
+                if i.name == startimage:
+                    image = i
+                    break
+            if not image:
+                self.err('Image %s could not be found.', startimage)
+                return False
+            if Commit(image.hash, self.repository) <= self.repository.current_commit:
+                self.info('Using %s as new starting point.', startimage)
+                pass
+            else:
+                self.err('%s is not a valid starting point for this repository.', startimage)
+                return False
+        else:
+            # Retrieve the closest image.
+            image = self.image
 
-        # Retrieve the closest container.
-        container = self.__closest([
-            c for c in Container.list()
-            if c.project == self.project
-        ])
-        """:type: Container"""
+            # Retrieve the closest container.
+            container = self.__closest([
+                c for c in Container.list()
+                if c.project == self.project
+            ])
+            """:type: Container"""
 
 
-        if image and container:
-            # If both image and container exist, check if the container is newer
-            # and commit if necessary.
-            self.debug("Comparing %s with %s.", container, image)
-            commit_container = Commit(container.hash, self.repository)
-            commit_image = Commit(image.hash, self.repository)
-            if commit_image.hash == 'new' or commit_container > commit_image:
+            if image and container:
+                # If both image and container exist, check if the container is newer
+                # and commit if necessary.
+                self.debug("Comparing %s with %s.", container, image)
+                commit_container = Commit(container.hash, self.repository)
+                commit_image = Commit(image.hash, self.repository)
+                if commit_image.hash == 'new' or commit_container > commit_image:
+                    image_name = "%s/%s" % (self.project, container.hash)
+                    self.debug("%s is newer than %s", container, image)
+                    self.info("Committing new image %s.", image_name)
+                    container.commit(image_name)
+                    image = self.image
+                else:
+                    self.debug("%s is older than %s.", container, image)
+                    self.debug("Reusing existing image.")
+            elif container:
+                # Only a compatible container exists, commit it to create an image.
+                self.info("No image found, committing %s.", container)
                 image_name = "%s/%s" % (self.project, container.hash)
-                self.debug("%s is newer than %s", container, image)
-                self.info("Committing new image %s.", image_name)
                 container.commit(image_name)
                 image = self.image
+            elif image:
+                # Only an image exists, simply use it.
+                self.debug("No container found, building from %s", image)
             else:
-                self.debug("%s is older than %s.", container, image)
-                self.debug("Reusing existing image.")
-        elif container:
-            # Only a compatible container exists, commit it to create an image.
-            self.info("No image found, committing %s.", container)
-            image_name = "%s/%s" % (self.project, container.hash)
-            container.commit(image_name)
-            image = self.image
-        elif image:
-            # Only an image exists, simply use it.
-            self.debug("No container found, building from %s", image)
-        else:
-            # No starting point available. Building from base image.
-            if self.repository.branch == self.conf.root_branch:
-                base = self.conf.base_image
-                self.warn("No image or container, starting from %s", base)
-                image = BaseImage(self.project)
-            else:
-                self.err(
-                    "No valid starting point found. Either branch \"%s\" needs to be built first or \"%s\" has to be rebased.",
-                    self.conf.root_branch, self.repository.branch)
-                return False
+                # No starting point available. Building from base image.
+                if self.repository.branch == self.conf.root_branch:
+                    base = self.conf.base_image
+                    self.warn("No image or container, starting from %s", base)
+                    image = BaseImage(self.project)
+                else:
+                    self.err(
+                        "No valid starting point found. Either branch \"%s\" needs to be built first or \"%s\" has to be rebased.",
+                        self.conf.root_branch, self.repository.branch)
+                    return False
 
         # Build correct container name.
         container_name = "%s.%s.%s" % (self.project, self.instance, image.hash)
