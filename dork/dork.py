@@ -372,14 +372,25 @@ class Dork:
             self.project,
             self.instance
         )
+        host_log_dir = "%s/%s/%s" % (
+            self.conf.host_log_directory,
+            self.project,
+            self.instance
+        )
 
         container_volumes = {
             host_src_dir: self.conf.dork_source_directory,
             host_bld_dir: self.conf.dork_build_directory,
+            host_log_dir: self.conf.dork_log_directory,
         }
 
         # Create the container
-        Container.create(container_name, image.name, container_volumes)
+        if self.project == self.instance:
+            domain = "%s.dork" % self.project
+        else:
+            domain = "%s.%s.dork" % (self.project, self.instance)
+
+        Container.create(container_name, image.name, container_volumes, domain)
         self.info("Successfully created %s from %s.", container_name, image.name)
         return True
 

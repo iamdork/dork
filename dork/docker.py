@@ -31,8 +31,8 @@ class Container:
         return containers()
 
     @classmethod
-    def create(cls, name, image, volumes):
-        return create(name, image, volumes)
+    def create(cls, name, image, volumes, hostname):
+        return create(name, image, volumes, hostname)
 
     @property
     def id(self):
@@ -95,7 +95,7 @@ class Container:
 
         :rtype: str
         """
-        if self.project is self.instance:
+        if self.project == self.instance:
             return "%s.dork" % self.project
         else:
             return "%s.%s.dork" % (self.project, self.instance)
@@ -286,9 +286,10 @@ def images(clear=False):
     return __images
 
 
-def create(name, image, volumes):
+def create(name, image, volumes, hostname):
     """:type volumes: dict"""
     data = {
+        'Hostname': hostname,
         'Image': image,
         'Volumes': {},
         'HostConfig': {

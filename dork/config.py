@@ -80,6 +80,15 @@ class Config:
         return self.__default('host_build_directory', '/var/build')
 
     @property
+    def host_log_directory(self):
+        """
+        The directory containing the project logs on the host.
+
+        :rtype: str
+        """
+        return self.__default('host_log_directory', '/var/log/dork')
+
+    @property
     def ansible_roles_path(self):
         """
         A list of directories that are scanned for Ansible roles.
@@ -108,6 +117,16 @@ class Config:
         :rtype: str
         """
         return self.__default('dork_build_directory', '/var/build')
+
+    @property
+    def dork_log_directory(self):
+        """
+        Returns the directory containing the logs inside a
+        container.
+
+        :rtype: str
+        """
+        return self.__default('dork_log_directory', '/var/log/dork')
 
     @property
     def base_image(self):
