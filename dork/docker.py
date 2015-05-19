@@ -10,6 +10,7 @@ from subprocess import check_output
 from datetime import datetime
 from dateutil.parser import parse as parse_date
 import socket
+import json
 
 class Container:
     """
@@ -205,6 +206,9 @@ class Container:
     def commit(self, repo):
         _container_commit(self.id, repo)
 
+    def execute(self, command):
+        _container_execute(self.id, command)
+
 
 class Image:
     def __init__(self, data):
@@ -354,6 +358,20 @@ def _container_accessible(address):
     except socket.error:
         return False
 
+def _container_execute(id, command):
+    execute = json.loads(__post('containers/%s/exec' % id, data= {
+        "AttachStdin": False,
+        "AttachStdout": True,
+        "AttachStderr": True,
+        "Tty": False,
+        "Cmd": command,
+    }, codes=(201,)))
+    return __post('exec/%s/start' % execute['Id'], data = {
+        "Detach": False,
+        "Tty": False,
+    }, codes=(200,))
+
+
 
 def _image_remove(iid):
     __delete('images/%s' % iid, codes=(200,))
@@ -400,6 +418,7 @@ def __post(path, query=(), data=(), codes=(200,)):
 
     if result.status_code not in codes:
         raise DockerException(result.status_code, result.text)
+    return result.text
 
 
 def __delete(path, query=(), codes=(200,)):
