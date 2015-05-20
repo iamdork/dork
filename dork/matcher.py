@@ -131,7 +131,7 @@ def get_roles(clear=True):
                 meta = yaml.load(open(meta_file, 'r'))
                 """:type: dict """
 
-                if any(role in s for s in config.config().global_roles):
+                if any(role == s for s in config.config().global_roles):
                     if 'dork' not in meta:
                         meta['dork'] = {}
 

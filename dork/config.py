@@ -167,8 +167,7 @@ class Config:
             return []
         else:
             rlist = roles.split(',')
-            map(str.strip, rlist)
-            return rlist
+            return map(str.strip, rlist)
 
     @property
     def max_containers(self):
