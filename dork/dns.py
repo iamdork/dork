@@ -11,7 +11,7 @@ def refresh():
     Ensure that all running containers have a valid entry in /etc/hosts.
     """
     containers = docker.containers()
-    hosts = '\n'.join(['%s %s' % (c.address, c.domain) for c in [d for d in containers if d.running]])
+    hosts = '\n'.join(['%s %s.%s.dork %s' % (c.address, c.project, c.instance, c.domain) for c in [d for d in containers if d.running]])
     hosts = '# DORK START\n%s\n# DORK END' % hosts
 
     expr = re.compile('# DORK START\n(.*\n)*# DORK END')
