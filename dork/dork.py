@@ -669,19 +669,18 @@ class Dork:
                     if subprocess.call(call) != 0:
                         self.warn("Unable to remove logs directory %s.", remove.logs)
 
-        if self.mode == Mode.SERVER:
-            # Remove images that are ancestors of other images.
-            images = [i for i in Image.list() if i.project == self.project]
-            removable_images = [i for i in images if self.__is_removable(i, images)]
+        # Remove images that are ancestors of other images.
+        images = [i for i in Image.list() if i.project == self.project]
+        removable_images = [i for i in images if self.__is_removable(i, images)]
 
-            for remove in removable_images:
-                try:
-                    remove.delete()
-                except DockerException:
-                    pass
+        for remove in removable_images:
+            try:
+                remove.delete()
+            except DockerException:
+                pass
 
-            self.info("Cleanup successfull, removed %s containers and %s images.",
-                      len(removable_containers), len(removable_images))
+        self.info("Cleanup successfull, removed %s containers and %s images.",
+                  len(removable_containers), len(removable_images))
         return True
 
     def commit(self):
