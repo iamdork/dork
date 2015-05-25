@@ -38,7 +38,7 @@ def main():
         help='Display a summary of the current status.')
 
     def func_status(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         rows = [[
             'Name',
             'Directory',
@@ -72,7 +72,7 @@ def main():
         help='Display detailed information.')
 
     def func_info(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         data = []
         for d in Dork.scan(os.path.abspath(params.directory)):
             data.append(['---------------'])
@@ -128,7 +128,7 @@ def main():
                 if d.project not in inventory:
                     inventory[d.project] = {
                         'hosts': [],
-                        'vars': config.config().project_vars(d.project)
+                        'vars': config.config().variables(d.project)
                     }
                     inventory[d.project]['vars']['ansible_ssh_user'] = 'root'
                 inventory[d.project]['hosts'].append(d.container.address)
@@ -155,7 +155,7 @@ def main():
         """)
 
     def func_create(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.create(params.image):
                 return -1
@@ -180,7 +180,7 @@ def main():
         """)
 
     def func_start(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not (d.create(params.image) and d.start()):
                 return -1
@@ -197,7 +197,7 @@ def main():
         """)
 
     def func_clean(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if d.container:
                 d.clean()
@@ -222,7 +222,7 @@ def main():
         """)
 
     def func_update(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not (d.create(params.image) and d.start() and d.update() and d.clean()):
                 return -1
@@ -246,7 +246,7 @@ def main():
         """)
 
     def func_build(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.build():
                 return -1
@@ -263,7 +263,7 @@ def main():
         """)
 
     def func_stop(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.stop():
                 return -1
@@ -280,7 +280,7 @@ def main():
         """)
 
     def func_remove(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not (d.stop() and d.remove()):
                 return -1
@@ -297,7 +297,7 @@ def main():
         """)
 
     def func_boot(params):
-        config.config_defaults({'log_level': params.logging})
+        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if d.container:
                 if not d.start():

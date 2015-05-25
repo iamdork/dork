@@ -17,7 +17,7 @@ class TestDefaultValues(unittest.TestCase):
             '/etc/ansible/roles', '/opt/roles'])
 
     def test_project_variables(self):
-        self.assertEqual(self.__config.project_vars('test'), {})
+        self.assertEqual(self.__config.variables('test'), {})
 
 simple_config_files = dict()
 
@@ -50,7 +50,7 @@ class TestSimpleConfig(unittest.TestCase):
         self.assertEqual('/var/build', self.__config.host_build_directory)
 
     def test_project_variable(self):
-        self.assertEqual({'variable': 'test'}, self.__config.project_vars('test'))
+        self.assertEqual({'variable': 'test'}, self.__config.variables('test'))
 
 multi_config_files = dict()
 
@@ -92,4 +92,4 @@ class TestMultiConfig(unittest.TestCase):
         self.assertEqual('/custom/build/subdir', self.__config.host_build_directory)
 
     def test_variable_override(self):
-        self.assertEqual({'variable_one': 'a', 'variable_two': 'c'}, self.__config.project_vars('test'))
+        self.assertEqual({'variable_one': 'a', 'variable_two': 'c'}, self.__config.variables('test'))

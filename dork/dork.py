@@ -74,6 +74,7 @@ class Dork:
         """
         self.repository = repository
         self.conf = config.config()
+        self.conf.set_project(self.project)
         levels = {
             'error': logging.ERROR,
             'warn': logging.WARNING,
@@ -583,7 +584,7 @@ class Dork:
 
     @property
     def variables(self):
-        return self.conf.project_vars(self.project)
+        return self.conf.variables()
 
     def __play(self, tags=None):
         # Retrieve extra variables from configuration.

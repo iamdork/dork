@@ -8,7 +8,7 @@ from ConfigParser import ConfigParser, NoOptionError
 __conf__ = {}
 
 
-def config(clear=False):
+def config(clear=False, project=None):
     """
     Retrieve the configuration settings for the current environment. The
     settings object is cached, as long as the [clear] argument is not True.
@@ -29,10 +29,10 @@ def config(clear=False):
         __conf__ = Config(parser)
     return __conf__
 
-__defaults__ = {}
+__overrides__ = {}
 
-def config_defaults(defaults):
-    __defaults__.update(defaults)
+def override(overrides):
+    __overrides__.update(overrides)
 
 
 class Config:
@@ -40,27 +40,43 @@ class Config:
         """
         :param ConfigParser parser: The ConfigParser instance to use.
         """
-        self.__p = parser
+        self.__parser = parser
+        self.__project = None
+
+    def set_project(self, project):
+        self.__project = project
 
     def __default(self, key, default):
-        if self.__p and 'dork' in self.__p.sections():
-            try:
-                return self.__p.get('dork', key)
-            except NoOptionError:
-                if key in __defaults__:
-                    return __defaults__[key]
-                return default
-        else:
-            return default
+        # Abort if key is in overrides
+        if key in __overrides__:
+            return __overrides__[key]
 
-    @property
-    def root_branch(self):
-        """
-        The branch considered as "stable".
-        :rtype: str
-        """
-        return self.__default('root_branch', 'master')
+        value = None
+        # If there is a parser, search for variables there
+        if self.__parser:
+            # First try to set from global section
+            if 'global' in self.__parser.sections():
+                try:
+                    value = self.__parser.get('global', key)
+                except NoOptionError:
+                    pass
+            # Override from project section, if it exists.
+            if self.__project is not None:
+                section = "project:%s" % self.__project
+                if section in self.__parser.sections():
+                    try:
+                        value = self.__parser.get(section, key)
+                    except NoOptionError:
+                        pass
+        # If nothing was found, search in
+        if value is None and key in __overrides__:
+            value = __overrides__[key]
 
+        return value if value is not None else default
+
+    # ======================================================================
+    # GLOBAL CONFIGURATION PROPERTIES
+    # ======================================================================
     @property
     def host_source_directory(self):
         """
@@ -97,6 +113,56 @@ class Config:
         """
         return self.__default('ansible_roles_path',
                               '/etc/ansible/roles:/opt/roles').split(':')
+
+
+    @property
+    def docker_address(self):
+        """
+        The address used to access docker.
+
+        :rtype: str
+        """
+        return self.__default('docker_address', 'http://127.0.0.1:2375')
+
+    @property
+    def max_containers(self):
+        """
+        The maximum amount of containers running simultaneously.
+
+        :rtype: int
+        """
+        return self.__default('max_containers', 0)
+
+    @property
+    def startup_timeout(self):
+        """
+        Number of seconds startup process tries to ssh-connect to a
+        container before it fails.
+        If set to 0, connection check is omitted.
+
+        :rtype: int
+        """
+        return self.__default('startup_timeout', 5)
+
+    @property
+    def log_level(self):
+        """
+        The loglevel for dork interal logs.
+
+        :return: string
+        """
+        return self.__default('log_level', 'warn')
+
+    # ======================================================================
+    # PROJECT CONFIGURATION PROPERTIES
+    # ======================================================================
+    @property
+    def root_branch(self):
+        """
+        The branch considered as "stable".
+        :rtype: str
+        """
+        return self.__default('root_branch', 'master')
 
     @property
     def dork_source_directory(self):
@@ -139,15 +205,6 @@ class Config:
         return self.__default('base_image', 'dork/container')
 
     @property
-    def docker_address(self):
-        """
-        The address used to access docker.
-
-        :rtype: str
-        """
-        return self.__default('docker_address', 'http://127.0.0.1:2375')
-
-    @property
     def global_roles(self):
         """
         List of roles that are applied on every container, no matter if
@@ -161,50 +218,27 @@ class Config:
             rlist = roles.split(',')
             return map(str.strip, rlist)
 
-    @property
-    def max_containers(self):
-        """
-        The maximum amount of containers running simultaneously.
-
-        :rtype: int
-        """
-        return self.__default('max_containers', 0)
-
-    @property
-    def startup_timeout(self):
-        """
-        Number of seconds startup process tries to ssh-connect to a
-        container before it fails.
-        If set to 0, connection check is omitted.
-
-        :rtype: int
-        """
-        return self.__default('startup_timeout', 5)
-
-    @property
-    def log_level(self):
-        """
-        The loglevel for dork interal logs.
-
-        :return: string
-        """
-        return self.__default('log_level', 'warn')
-
-    @property
-    def global_vars(self):
-        if self.__p and 'global' in self.__p.sections():
-            return {key: value for key, value in self.__p.items('global')}
-        else:
-            return {}
-
-    def project_vars(self, project):
+    def variables(self):
         """
         Retrieve project specific settings as dictionary.
 
         :param str project:
         :rtype: dict[str,str]
         """
-        vars = self.global_vars
-        if self.__p and project in self.__p.sections():
-            vars.update(self.__p.items(project))
-        return vars
+        variables = {}
+        if self.__parser and 'global' in self.__parser.sections():
+            variables.update({key: value for key, value
+                              in self.__parser.items('global')
+                              if getattr(self, key, None) is None})
+
+
+        if self.__project is not None:
+            section = "project:%s" % self.__project
+            if self.__parser and section in self.__parser.sections():
+                variables.update({key: value for key, value
+                                  in self.__parser.items(section)
+                                  if getattr(self, key, None) is None})
+
+        variables.update({key: value for key, value in __overrides__.iteritems()
+                         if getattr(self, key, None) is None})
+        return variables
