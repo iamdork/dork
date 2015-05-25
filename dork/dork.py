@@ -230,7 +230,7 @@ class Dork:
                         _recurse_includes(self.__roles[inc].includes)
 
             for name, role in all_roles.iteritems():
-                if name not in self.__roles and role.matches(self.repository):
+                if name not in self.__roles and role.matches(self.repository, self.conf.global_roles):
                     self.__roles[name] = role
                     _recurse_includes(role.includes)
         return self.__roles

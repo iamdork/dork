@@ -11,6 +11,8 @@ class Role:
     def __init__(self, name, meta):
         self.name = name
         self.__meta = meta
+        if 'dork' not in self.__meta:
+            self.__meta['dork'] = {}
 
     @classmethod
     def list(cls):
@@ -40,8 +42,8 @@ class Role:
             patterns = {'default': patterns}
         return patterns
 
-    def matches(self, repository):
-        return len(self.matching_patterns(repository)) > 0
+    def matches(self, repository, global_roles = ()):
+        return self.name in global_roles or len(self.matching_patterns(repository)) > 0
 
     __matching_patterns = None
 
@@ -128,26 +130,23 @@ def get_roles(clear=True):
                 # Skip if name starts with a . or meta file doesn't exist.
                 if role.startswith('.') or not os.path.isfile(meta_file):
                     continue
-                meta = yaml.load(open(meta_file, 'r'))
-                """:type: dict """
+                __roles[role] = yaml.load(open(meta_file, 'r'))
 
-                if any(role == s for s in config.config().global_roles):
-                    if 'dork' not in meta:
-                        meta['dork'] = {}
-
-                    if 'build_triggers' not in meta['dork']:
-                        meta['dork']['build_triggers'] = {}
-
-                    if not isinstance(meta['dork']['build_triggers'], dict):
-                        meta['dork']['build_triggers'] = {
-                            'default': meta['dork']['build_triggers']
-                        }
-
-                    meta['dork']['build_triggers']['global'] = True
+                # if any(role == s for s in config.config().global_roles):
+                #     if 'dork' not in meta:
+                #         meta['dork'] = {}
+                #
+                #     if 'build_triggers' not in meta['dork']:
+                #         meta['dork']['build_triggers'] = {}
+                #
+                #     if not isinstance(meta['dork']['build_triggers'], dict):
+                #         meta['dork']['build_triggers'] = {
+                #             'default': meta['dork']['build_triggers']
+                #         }
+                #
+                #     meta['dork']['build_triggers']['global'] = True
 
                 # Skip if this is not a dork-aware role
-                if 'dork' not in meta:
-                    continue
-
-                __roles[role] = meta
+                # if 'dork' not in meta:
+                #     continue
     return __roles
