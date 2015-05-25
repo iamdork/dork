@@ -148,18 +148,10 @@ class Config:
         return self.__default('docker_address', 'http://127.0.0.1:2375')
 
     @property
-    def dork_user(self):
-        """
-        The user name used for docker containers and management.
-
-        :rtype: str
-        """
-        return self.__default('dork_user', 'root')
-
-    @property
     def global_roles(self):
         """
-        Name of a role that provides ssh functionality.
+        List of roles that are applied on every container, no matter if
+        build triggers match or not.
         :return:
         """
         roles = self.__default('global_roles', None)

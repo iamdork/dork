@@ -370,7 +370,7 @@ def _container_accessible(address):
     client.load_system_host_keys()
     client.set_missing_host_key_policy(AutoAddPolicy())
     try:
-        client.connect(address, username=config().dork_user, key_filename='/etc/dork-keys/key')
+        client.connect(address, username='root', key_filename='/etc/dork-keys/key')
         return True
     except socket.error:
         return False

@@ -130,8 +130,7 @@ def main():
                         'hosts': [],
                         'vars': config.config().project_vars(d.project)
                     }
-                    inventory[d.project]['vars']['ansible_ssh_user'] = config.config().dork_user
-                    inventory[d.project]['vars']['dork_user'] = config.config().dork_user
+                    inventory[d.project]['vars']['ansible_ssh_user'] = 'root'
                 inventory[d.project]['hosts'].append(d.container.address)
         print(json.dumps(inventory))
 
