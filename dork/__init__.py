@@ -82,6 +82,7 @@ def main():
                 name for name, role in d.executable_roles.iteritems()])])
             data.append(['Variables', json.dumps(d.variables)])
             data.append(['Patterns', ', '.join(d.matching_patterns)])
+            data.append(['Skip tags', ', '.join(d.exclude_patterns)])
             data.append(['Directory', d.repository.directory])
             data.append(['Branch', d.repository.branch])
             data.append(['HEAD', d.repository.current_commit.message])

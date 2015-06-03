@@ -217,6 +217,18 @@ class Config:
         else:
             rlist = roles.split(',')
             return map(str.strip, rlist)
+    @property
+    def skip_tags(self):
+        """
+        List of tags that should not be executed.
+        :return:
+        """
+        tags = self.__default('skip_tags', None)
+        if tags is None:
+            return []
+        else:
+            taglist = tags.split(',')
+            return map(str.strip, taglist)
 
     def variables(self):
         """

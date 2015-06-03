@@ -294,7 +294,7 @@ class Dork:
         """
         :rtype: list[str]
         """
-        return [p for p in self.patterns if p not in self.matching_patterns]
+        return self.conf.skip_tags + [p for p in self.patterns if p not in self.matching_patterns]
 
     # ======================================================================
     # LIFECYCLE INTERFACE
