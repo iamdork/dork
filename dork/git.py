@@ -1,6 +1,7 @@
 from subprocess import call, check_output, PIPE
 from glob2 import glob, Globber
 import os
+import re
 
 def _listdir(path):
     if os.path.exists(path + '/.git'):
@@ -147,6 +148,31 @@ class Repository:
         :rtype: str
         """
         return self.__directory
+
+    def contains_file(self, filepattern, contentpattern=None):
+        """
+        Check if the repository contains a file matching a glob pattern.
+        Optionally provide a regex the files content is matched against
+        additionally.
+
+        :rtype: bool
+        """
+        if contentpattern:
+            f = "%s/%s" % (self.directory, filepattern)
+            matched_files = glob(f) if '*' in f else [f]
+            expr = re.compile(contentpattern)
+            for f in matched_files:
+                with open(f) as fp:
+                    if expr.search(fp.read()):
+                        return True
+            return False
+        else:
+            f = "%s/%s" % (self.directory, filepattern)
+            if '*' in filepattern:
+                return len(glob(f)) > 0
+            else:
+                return os.path.exists(f)
+
 
 
 def _is_repository(directory):

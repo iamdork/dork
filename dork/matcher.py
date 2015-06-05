@@ -2,9 +2,7 @@ import config
 from git import Repository
 import os
 import yaml
-from glob2 import glob
 from fnmatch import fnmatch
-import re
 
 
 class Role:
@@ -64,26 +62,10 @@ class Role:
                         # If it's a dictionary, use key as filepattern and
                         # value as content regex.
                         if isinstance(filepattern, dict):
-                            for contentpattern, regex in filepattern.iteritems():
-                                f = "%s/%s" % (repository.directory, contentpattern)
-                                matches = []
-                                if '*' in f:
-                                    matches = glob(f)
-                                elif os.path.exists(f):
-                                    matches.append(f)
-                                m = False
-                                expr = re.compile(regex)
-                                for match in matches:
-                                    with open(match) as fp:
-                                        if expr.search(fp.read()):
-                                            m = True
-                                fits = fits and m
+                            for globpattern, contentpattern in filepattern.iteritems():
+                                fits = fits and repository.contains_file(globpattern, contentpattern)
                         else:
-                            f = "%s/%s" % (repository.directory, filepattern)
-                            if '*' in filepattern:
-                                fits = fits and len(glob(f)) > 0
-                            else:
-                                fits = fits and os.path.exists(f)
+                            fits = fits and repository.contains_file(filepattern)
                     if fits:
                         self.__matching_patterns.append(pattern)
                 elif isinstance(filepatterns, bool):
@@ -133,21 +115,4 @@ def get_roles(clear=True):
                     continue
                 __roles[role] = yaml.load(open(meta_file, 'r'))
 
-                # if any(role == s for s in config.config().global_roles):
-                #     if 'dork' not in meta:
-                #         meta['dork'] = {}
-                #
-                #     if 'build_triggers' not in meta['dork']:
-                #         meta['dork']['build_triggers'] = {}
-                #
-                #     if not isinstance(meta['dork']['build_triggers'], dict):
-                #         meta['dork']['build_triggers'] = {
-                #             'default': meta['dork']['build_triggers']
-                #         }
-                #
-                #     meta['dork']['build_triggers']['global'] = True
-
-                # Skip if this is not a dork-aware role
-                # if 'dork' not in meta:
-                #     continue
     return __roles
