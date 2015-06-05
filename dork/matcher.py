@@ -50,7 +50,7 @@ class Role:
     def matching_patterns(self, repository):
         """
         :type repository: Repository
-        :rtype: str
+        :rtype: list[str]
         """
         if self.__matching_patterns is None:
             self.__matching_patterns = []
@@ -88,10 +88,11 @@ class Role:
                         self.__matching_patterns.append(pattern)
                 elif isinstance(filepatterns, bool):
                     # If filepatterns is a boolean value, match the pattern accordingly.
-                   if filepatterns and pattern == 'global':
-                       self.__matching_patterns.append(pattern)
-                   elif filepatterns:
-                       included_matches.append(pattern)
+                    if filepatterns and pattern == 'global':
+                        self.__matching_patterns.append(pattern)
+                    elif filepatterns:
+                        included_matches.append(pattern)
+
             if len(self.__matching_patterns) > 0:
                 self.__matching_patterns += included_matches
 
