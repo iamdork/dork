@@ -127,7 +127,7 @@ def main():
                 if d.project not in inventory:
                     inventory[d.project] = {
                         'hosts': [],
-                        'vars': config.config().variables(d.project)
+                        'vars': config.ProjectConfig(d.repository).variables()
                     }
                     inventory[d.project]['vars']['ansible_ssh_user'] = 'root'
                 inventory[d.project]['hosts'].append(d.container.address)
