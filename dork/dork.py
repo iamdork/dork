@@ -267,6 +267,10 @@ class Dork:
     # ======================================================================
     # LIFECYCLE INTERFACE
     # ======================================================================
+    def clear(self):
+        self.debug('clearing metadata caches')
+        Role.clear(self.repository)
+
     def create(self, startimage=False):
         """
         If no matching container is found, a new one will be created. If

@@ -135,6 +135,21 @@ def main():
 
     cmd_inventory.set_defaults(func=func_inventory)
 
+    # ======================================================================
+    # cache clear command
+    # ======================================================================
+    cmd_clear = subparsers.add_parser(
+        'clear',
+        help="""
+        Clear the meta information cache for this dork.
+        """)
+
+    def func_clear(params):
+        for d in Dork.scan(os.path.abspath(params.directory)):
+            d.clear()
+
+    cmd_clear.set_defaults(func=func_clear)
+
 
     # ======================================================================
     # create command
