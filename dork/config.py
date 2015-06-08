@@ -4,79 +4,44 @@ Reads system wide settings from various configuration files and provides them
 to other components.
 """
 from ConfigParser import ConfigParser, NoOptionError
+from git import Repository
+from matcher import Role
 
-__conf__ = {}
-
-
-def config(clear=False, project=None):
-    """
-    Retrieve the configuration settings for the current environment. The
-    settings object is cached, as long as the [clear] argument is not True.
-
-    :param bool clear: Boolean value to clear the cached configuration.
-      Default ist [True]
-    :rtype: Config
-    :return: A prepared configuration object.
-    """
-    global __conf__
-    if not __conf__ or clear:
-        parser = ConfigParser()
-        parser.read([
-            '/vagrant/dork.ini',
-            '/etc/dork/dork.ini',
-            '~/.dork.ini',
-        ])
-        __conf__ = Config(parser)
-    return __conf__
-
-__overrides__ = {}
-
-def override(overrides):
-    __overrides__.update(overrides)
+# Initialize the configuration parser.
+_parser = ConfigParser()
+_parser.read([
+    '/vagrant/dork.ini',
+    '/etc/dork/dork.ini',
+    '~/.dork.ini',
+])
 
 
 class Config:
-    def __init__(self, parser=None):
-        """
-        :param ConfigParser parser: The ConfigParser instance to use.
-        """
-        self.__parser = parser
-        self.__project = None
+    def __init__(self):
+        self.parser = _parser
 
-    def set_project(self, project):
-        self.__project = project
-
-    def __default(self, key, default):
-        # Abort if key is in overrides
-        if key in __overrides__:
-            return __overrides__[key]
-
-        value = None
-        # If there is a parser, search for variables there
-        if self.__parser:
-            # First try to set from global section
-            if 'global' in self.__parser.sections():
-                try:
-                    value = self.__parser.get('global', key)
-                except NoOptionError:
-                    pass
-            # Override from project section, if it exists.
-            if self.__project is not None:
-                section = "project:%s" % self.__project
-                if section in self.__parser.sections():
-                    try:
-                        value = self.__parser.get(section, key)
-                    except NoOptionError:
-                        pass
-        # If nothing was found, search in
-        if value is None and key in __overrides__:
-            value = __overrides__[key]
-
-        return value if value is not None else default
+    def get_value(self, key, default):
+        # First try to set from global section
+        if 'global' in self.parser.sections():
+            try:
+                return self.parser.get('global', key)
+            except NoOptionError:
+                return default
+        return default
 
     # ======================================================================
     # GLOBAL CONFIGURATION PROPERTIES
     # ======================================================================
+    @property
+    def ansible_roles_path(self):
+        """
+        A list of directories that are scanned for Ansible roles.
+
+        :rtype: list[str]
+        """
+        return self.get_value('ansible_roles_path',
+                              '/etc/ansible/roles:/opt/roles').split(':')
+
     @property
     def host_source_directory(self):
         """
@@ -84,7 +49,7 @@ class Config:
 
         :rtype: str
         """
-        return self.__default('host_source_directory', '/var/source')
+        return self.get_value('host_source_directory', '/var/source')
 
     @property
     def host_build_directory(self):
@@ -93,7 +58,7 @@ class Config:
 
         :rtype: str
         """
-        return self.__default('host_build_directory', '/var/build')
+        return self.get_value('host_build_directory', '/var/build')
 
     @property
     def host_log_directory(self):
@@ -102,18 +67,37 @@ class Config:
 
         :rtype: str
         """
-        return self.__default('host_log_directory', '/var/log/dork')
+        return self.get_value('host_log_directory', '/var/log/dork')
 
     @property
-    def ansible_roles_path(self):
+    def dork_source_directory(self):
         """
-        A list of directories that are scanned for Ansible roles.
+        Returns the directory containing the project source inside a
+        container.
 
-        :rtype: list[str]
+        :rtype: str
         """
-        return self.__default('ansible_roles_path',
-                              '/etc/ansible/roles:/opt/roles').split(':')
+        return self.get_value('dork_source_directory', '/var/source')
 
+    @property
+    def dork_build_directory(self):
+        """
+        Returns the directory containing the project build inside a
+        container.
+
+        :rtype: str
+        """
+        return self.get_value('dork_build_directory', '/var/build')
+
+    @property
+    def dork_log_directory(self):
+        """
+        Returns the directory containing the logs inside a
+        container.
+
+        :rtype: str
+        """
+        return self.get_value('dork_log_directory', '/var/log/dork')
 
     @property
     def docker_address(self):
@@ -122,7 +106,7 @@ class Config:
 
         :rtype: str
         """
-        return self.__default('docker_address', 'http://127.0.0.1:2375')
+        return self.get_value('docker_address', 'http://127.0.0.1:2375')
 
     @property
     def max_containers(self):
@@ -131,7 +115,7 @@ class Config:
 
         :rtype: int
         """
-        return self.__default('max_containers', 0)
+        return self.get_value('max_containers', 0)
 
     @property
     def startup_timeout(self):
@@ -142,7 +126,7 @@ class Config:
 
         :rtype: int
         """
-        return self.__default('startup_timeout', 5)
+        return self.get_value('startup_timeout', 5)
 
     @property
     def log_level(self):
@@ -151,48 +135,59 @@ class Config:
 
         :return: string
         """
-        return self.__default('log_level', 'warn')
+        return self.get_value('log_level', 'warn')
+
+config = Config()
+
+class ProjectConfig(Config):
+
+    def __init__(self, repository):
+        """
+        :type repository: Repository
+        :return:
+        """
+        Config.__init__(self)
+        # Split the directory path.
+        self.__segments = repository.directory \
+            .replace(config.host_source_directory + '/', '') \
+            .split('/')
+        self.__settings = {}
+        for role in Role.tree(repository):
+            self.__settings.update(role.settings)
+
+
+    def get_value(self, key, default):
+        # Override from project section, if it exists.
+        if key in self.__settings:
+            return self.__settings[key]
+
+        section = "project:%s" % self.project
+        if section in self.parser.sections():
+            try:
+                return self.parser.get(section, key)
+            except NoOptionError:
+                return Config.get_value(self, key, default)
+        else:
+            return Config.get_value(self, key, default)
 
     # ======================================================================
     # PROJECT CONFIGURATION PROPERTIES
     # ======================================================================
+    @property
+    def project(self):
+        return self.__segments[0]
+
+    @property
+    def instance(self):
+        return self.__segments[-1]
+
     @property
     def root_branch(self):
         """
         The branch considered as "stable".
         :rtype: str
         """
-        return self.__default('root_branch', 'master')
-
-    @property
-    def dork_source_directory(self):
-        """
-        Returns the directory containing the project source inside a
-        container.
-
-        :rtype: str
-        """
-        return self.__default('dork_source_directory', '/var/source')
-
-    @property
-    def dork_build_directory(self):
-        """
-        Returns the directory containing the project build inside a
-        container.
-
-        :rtype: str
-        """
-        return self.__default('dork_build_directory', '/var/build')
-
-    @property
-    def dork_log_directory(self):
-        """
-        Returns the directory containing the logs inside a
-        container.
-
-        :rtype: str
-        """
-        return self.__default('dork_log_directory', '/var/log/dork')
+        return self.get_value('root_branch', 'master')
 
     @property
     def base_image(self):
@@ -202,33 +197,7 @@ class Config:
 
         :rtype: str
         """
-        return self.__default('base_image', 'dork/container')
-
-    @property
-    def global_roles(self):
-        """
-        List of roles that are applied on every container, no matter if
-        build triggers match or not.
-        :return:
-        """
-        roles = self.__default('global_roles', None)
-        if roles is None:
-            return []
-        else:
-            rlist = roles.split(',')
-            return map(str.strip, rlist)
-    @property
-    def skip_tags(self):
-        """
-        List of tags that should not be executed.
-        :return:
-        """
-        tags = self.__default('skip_tags', None)
-        if tags is None:
-            return []
-        else:
-            taglist = tags.split(',')
-            return map(str.strip, taglist)
+        return self.get_value('base_image', 'dork/container')
 
     def variables(self):
         """
@@ -237,20 +206,19 @@ class Config:
         :param str project:
         :rtype: dict[str,str]
         """
-        variables = {}
-        if self.__parser and 'global' in self.__parser.sections():
+        variables = {key: value for key, value in self.__settings.iteritems()
+                     if getattr(self, key, None) is None}
+
+        if self.parser and 'global' in self.parser.sections():
             variables.update({key: value for key, value
-                              in self.__parser.items('global')
+                              in self.parser.items('global')
                               if getattr(self, key, None) is None})
 
 
-        if self.__project is not None:
-            section = "project:%s" % self.__project
-            if self.__parser and section in self.__parser.sections():
+        if self.project is not None:
+            section = "project:%s" % self.project
+            if self.parser and section in self.parser.sections():
                 variables.update({key: value for key, value
-                                  in self.__parser.items(section)
+                                  in self.parser.items(section)
                                   if getattr(self, key, None) is None})
-
-        variables.update({key: value for key, value in __overrides__.iteritems()
-                         if getattr(self, key, None) is None})
         return variables

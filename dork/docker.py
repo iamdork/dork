@@ -3,7 +3,7 @@ Simple API to docker.
 """
 
 import requests
-from paramiko import SSHClient, SSHException, AutoAddPolicy
+from paramiko import SSHClient, AutoAddPolicy
 from git import Repository
 from config import config
 from subprocess import check_output
@@ -11,6 +11,7 @@ from datetime import datetime
 from dateutil.parser import parse as parse_date
 import socket
 import json
+
 
 class Container:
     """
@@ -133,7 +134,7 @@ class Container:
         for bind in self.__data['HostConfig']['Binds']:
             host = bind.split(':')[0]
             container = bind.split(':')[1]
-            if container == config().dork_source_directory:
+            if container == config.dork_source_directory:
                 directory = host
         return directory
 
@@ -158,7 +159,7 @@ class Container:
         for bind in self.__data['HostConfig']['Binds']:
             host = bind.split(':')[0]
             container = bind.split(':')[1]
-            if container == config().dork_build_directory:
+            if container == config.dork_build_directory:
                 directory = host
         return directory
 
@@ -174,7 +175,7 @@ class Container:
         for bind in self.__data['HostConfig']['Binds']:
             host = bind.split(':')[0]
             container = bind.split(':')[1]
-            if container == config().dork_log_directory:
+            if container == config.dork_log_directory:
                 directory = host
         return directory
 
@@ -271,9 +272,9 @@ class Image:
 
 
 class BaseImage:
-    def __init__(self, project):
+    def __init__(self, project, base):
         self.project = project
-        self.name = config().base_image
+        self.name = base
         self.hash = 'new'
 
 
@@ -413,7 +414,7 @@ def __get(path, query=(), codes=(200,)):
     """
 
     result = requests.get(
-        "%s/%s" % (config().docker_address, path),
+        "%s/%s" % (config.docker_address, path),
         params=query)
 
     if result.status_code in codes:
@@ -426,11 +427,11 @@ def __post(path, query=(), data=(), codes=(200,)):
 
     if data:
         result = requests.post(
-            "%s/%s" % (config().docker_address, path),
+            "%s/%s" % (config.docker_address, path),
             params=query, json=data)
     else:
         result = requests.post(
-            "%s/%s" % (config().docker_address, path),
+            "%s/%s" % (config.docker_address, path),
             params=query)
 
     if result.status_code not in codes:
@@ -441,7 +442,7 @@ def __post(path, query=(), data=(), codes=(200,)):
 def __delete(path, query=(), codes=(200,)):
 
     result = requests.delete(
-        "%s/%s" % (config().docker_address, path),
+        "%s/%s" % (config.docker_address, path),
         params=query)
 
     if result.status_code not in codes:

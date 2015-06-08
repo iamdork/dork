@@ -1,4 +1,4 @@
-import config
+from config import ProjectConfig, config
 from git import Repository, Commit
 from docker import Container, Image, BaseImage, DockerException
 from matcher import Role
@@ -73,15 +73,14 @@ class Dork:
         :type repository: Repository
         """
         self.repository = repository
-        self.conf = config.config()
-        self.conf.set_project(self.project)
+        self.conf = ProjectConfig(self.repository)
         levels = {
             'error': logging.ERROR,
             'warn': logging.WARNING,
             'info': logging.INFO,
             'debug': logging.DEBUG,
         }
-        self.logger = logging.Logger(self.name, level=levels[self.conf.log_level])
+        self.logger = logging.Logger(self.name, level=levels[config.log_level])
         self.logger.addHandler(logging.StreamHandler())
 
     @classmethod
@@ -123,7 +122,7 @@ class Dork:
         """
         # Stop containers until maximum amount of simultaneous containers is
         # met.
-        max_containers = config.config().max_containers
+        max_containers = config.max_containers
         stop_count = 0
         if max_containers > 0:
             running = [c for c in Container.list() if c.running]
@@ -168,11 +167,11 @@ class Dork:
     # ======================================================================
     @property
     def project(self):
-        return self.__segments[0]
+        return self.conf.project
 
     @property
     def instance(self):
-        return self.__segments[-1]
+        return self.conf.instance
 
     @property
     def name(self):
@@ -221,39 +220,8 @@ class Dork:
         :rtype: dict[str, Role]
         """
         if not self.__roles:
-            all_roles = {r.name: r for r in Role.list()}
-            self.__roles = {}
-
-            def _recurse_includes(includes):
-                for inc in includes:
-                    if inc in all_roles and inc not in self.__roles:
-                        self.__roles[inc] = all_roles[inc]
-                        _recurse_includes(self.__roles[inc].includes)
-
-            for name, role in all_roles.iteritems():
-                if name not in self.__roles and role.matches(self.repository, self.conf.global_roles):
-                    self.__roles[name] = role
-                    _recurse_includes(role.includes)
+            self.__roles = {r.name: r for r in Role.tree(self.repository) }
         return self.__roles
-
-
-    @property
-    def executable_roles(self):
-        """
-        :rtype: dict[str, Role]
-        """
-        redundant = []
-
-        roles = dict(self.roles)
-        for name, role in self.roles.iteritems():
-            for n, r in roles.iteritems():
-                if r.name in role.includes and r.name not in redundant:
-                    redundant.append(r.name)
-
-        for r in redundant:
-            del roles[r]
-
-        return roles
 
     @property
     def tags(self):
@@ -265,36 +233,36 @@ class Dork:
         """
         changes = self.repository.current_commit % Commit(self.container.hash, self.repository)
         for name, role in self.roles.iteritems():
-            tags = role.matching_tags(changes)
+            tags = role.update_triggers(changes)
             for tag in tags:
                 yield tag
 
     @property
-    def patterns(self):
+    def triggers(self):
         """:rtype: list[str]"""
         patterns = []
         for name, role in self.roles.iteritems():
-            for pattern in role.patterns:
+            for pattern in role.triggers():
                 if pattern not in patterns:
                     patterns.append(pattern)
         return patterns
 
     @property
-    def matching_patterns(self):
+    def active_triggers(self):
         """:rtype: list[str]"""
         patterns = []
         for name, role in self.roles.iteritems():
-            for pattern in role.matching_patterns(self.repository):
+            for pattern in role.active_triggers:
                 if pattern not in patterns:
                     patterns.append(pattern)
         return patterns
 
     @property
-    def exclude_patterns(self):
+    def disabled_triggers(self):
         """
         :rtype: list[str]
         """
-        return self.conf.skip_tags + [p for p in self.patterns if p not in self.matching_patterns]
+        return [p for p in self.triggers if p not in self.active_triggers]
 
     # ======================================================================
     # LIFECYCLE INTERFACE
@@ -371,7 +339,7 @@ class Dork:
                 if self.repository.branch == self.conf.root_branch:
                     base = self.conf.base_image
                     self.warn("No image or container, starting from %s", base)
-                    image = BaseImage(self.project)
+                    image = BaseImage(self.project, base)
                 else:
                     self.err(
                         "No valid starting point found. Either branch \"%s\" needs to be built first or \"%s\" has to be rebased.",
@@ -512,12 +480,13 @@ class Dork:
             changes = self.repository.current_commit % container_commit
             self.info("Found %s changed files.", len(changes))
             for name, role in self.roles.iteritems():
-                matched = role.matching_tags(changes)
+                matched = role.update_triggers(changes)
                 if matched:
                     self.debug("Matched %s in %s.", matched, role.name)
                     tags += matched
             self.info("Applying %s to update.", tags)
         else:
+            Role.clear(self.repository)
             self.warn("Container is new, running full build.")
 
         # If there are any tags, run the update.
@@ -565,6 +534,7 @@ class Dork:
         :return: [True] if the build succeeded.
         :rtype: bool
         """
+        Role.clear(self.repository)
         self.debug('Attempting to run full build.')
         if not self.container:
             self.err("Cannot build, container does not exist.")
@@ -593,12 +563,12 @@ class Dork:
 
         # Iterate over matching roles and build a list of tags that have NOT
         # been matched, to be used as list of exclude tags.
-        skip_tags = self.exclude_patterns
+        skip_tags = self.disabled_triggers
         self.debug("Skipping tags: %s", skip_tags)
 
         return runner.apply_roles(
-            [name for name, role in self.executable_roles.iteritems()],
-            self.container.address,
+            [name for name, role in self.roles.iteritems()],
+            self.container.address, self.repository,
             extra_vars, tags, skip_tags) == 0
 
     def clean(self):
@@ -653,7 +623,7 @@ class Dork:
                     if image.id == remove.image and image.name != self.conf.base_image:
                         try:
                             image.delete()
-                        except DockerException, exc:
+                        except DockerException:
                             pass
 
                 # Remove the build directory.
@@ -764,15 +734,6 @@ class Dork:
                     closest_commit = commit
                     closest_object = item
         return closest_object
-
-    @property
-    def __segments(self):
-        """
-        :rtype: list[string]
-        """
-        return self.repository.directory \
-            .replace(self.conf.host_source_directory + '/', '') \
-            .split('/')
 
     def __is_removable(self, obj, siblings):
         commit = Commit(obj.hash, self.repository)

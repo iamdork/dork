@@ -1,6 +1,6 @@
 import unittest
 import mock
-from dork.matcher import get_roles, Role
+from dork.matcher import get_roles_metadata, Role
 from io import BytesIO
 import re
 import dork.config as config
@@ -45,7 +45,7 @@ class TestRoleScan(unittest.TestCase):
         'dorkrole',
     ]])
     def test_get_roles(self, *args):
-        roles = [role for role in get_roles()]
+        roles = [role for role in get_roles_metadata()]
         self.assertEqual(len(roles), 1)
 
 _roles_simple = yaml.load("""
@@ -85,7 +85,7 @@ dork:
 class TestRole(unittest.TestCase):
     def test_includes(self):
         role = Role(_roles_simple)
-        self.assertItemsEqual(role.includes, ['dep_a', 'dep_b'])
+        self.assertItemsEqual(role.dependencies, ['dep_a', 'dep_b'])
 
     @mock.patch('dork.matcher.os.path.exists', side_effect=[True])
     def test_match_default(self, m):
@@ -129,15 +129,15 @@ class TestRole(unittest.TestCase):
 
     def test_tag_matches(self):
         role = Role(_roles_complex)
-        self.assertItemsEqual(['a', 'b', 'c'], role.matching_tags(['test/a/b/c.txt']))
+        self.assertItemsEqual(['a', 'b', 'c'], role.update_triggers(['test/a/b/c.txt']))
 
     def test_tag_matches_not(self):
         role = Role(_roles_complex)
-        self.assertItemsEqual([], role.matching_tags(['foo.txt']))
+        self.assertItemsEqual([], role.update_triggers(['foo.txt']))
 
     def test_tag_matches_some(self):
         role = Role(_roles_complex)
-        self.assertItemsEqual(['c'], role.matching_tags(['test/foo.txt']))
+        self.assertItemsEqual(['c'], role.update_triggers(['test/foo.txt']))
 
     @mock.patch('dork.matcher.glob', side_effect=[['foo']])
     @mock.patch('__builtin__.open', side_effect=lambda f: BytesIO('name = test\ncore=7.x\n'))

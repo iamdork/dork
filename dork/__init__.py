@@ -38,7 +38,6 @@ def main():
         help='Display a summary of the current status.')
 
     def func_status(params):
-        config.override({'log_level': params.logging})
         rows = [[
             'Name',
             'Directory',
@@ -72,17 +71,16 @@ def main():
         help='Display detailed information.')
 
     def func_info(params):
-        config.override({'log_level': params.logging})
         data = []
         for d in Dork.scan(os.path.abspath(params.directory)):
             data.append(['---------------'])
             data.append(['Project', d.project])
             data.append(['Instance', d.instance])
             data.append(['Roles', ', '.join([
-                name for name, role in d.executable_roles.iteritems()])])
+                name for name, role in d.roles.iteritems()])])
             data.append(['Variables', json.dumps(d.variables)])
-            data.append(['Patterns', ', '.join(d.matching_patterns)])
-            data.append(['Skip tags', ', '.join(d.exclude_patterns)])
+            data.append(['Patterns', ', '.join(d.active_triggers)])
+            data.append(['Skip tags', ', '.join(d.disabled_triggers)])
             data.append(['Directory', d.repository.directory])
             data.append(['Branch', d.repository.branch])
             data.append(['HEAD', d.repository.current_commit.message])
@@ -156,7 +154,6 @@ def main():
         """)
 
     def func_create(params):
-        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.create(params.image):
                 return -1
@@ -181,7 +178,6 @@ def main():
         """)
 
     def func_start(params):
-        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not (d.create(params.image) and d.start()):
                 return -1
@@ -198,7 +194,6 @@ def main():
         """)
 
     def func_clean(params):
-        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if d.container:
                 d.clean()
@@ -223,7 +218,6 @@ def main():
         """)
 
     def func_update(params):
-        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not (d.create(params.image) and d.start() and d.update() and d.clean()):
                 return -1
@@ -247,7 +241,6 @@ def main():
         """)
 
     def func_build(params):
-        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.build():
                 return -1
@@ -264,7 +257,6 @@ def main():
         """)
 
     def func_stop(params):
-        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not d.stop():
                 return -1
@@ -281,7 +273,6 @@ def main():
         """)
 
     def func_remove(params):
-        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if not (d.stop() and d.remove()):
                 return -1
@@ -298,7 +289,6 @@ def main():
         """)
 
     def func_boot(params):
-        config.override({'log_level': params.logging})
         for d in Dork.scan(os.path.abspath(params.directory)):
             if d.container:
                 if not d.start():
