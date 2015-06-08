@@ -5,31 +5,14 @@ import yaml
 import shelve
 from fnmatch import fnmatch
 
-cache = shelve.open(os.path.expanduser('~/.dork.cache'))
-
 class Role:
     @classmethod
     def tree(cls, repository):
-        if repository.directory not in cache:
-            matching_roles = []
-            for name in get_roles_metadata(repository):
-                role = get_role(name, repository)
-                if role.triggered:
-                    matching_roles.append(role)
-            included_roles = []
-            for role in matching_roles:
-                if any([r.includes(role.name) for r in matching_roles]):
-                    included_roles.append(role.name)
-
-            cache[repository.directory] = [r for r in matching_roles if r.name not in included_roles]
-            cache.sync()
-        return cache[repository.directory]
+        return RoleFactory(repository).tree()
 
     @classmethod
     def clear(cls, repository):
-        if cache.has_key(repository.directory):
-            del cache[repository.directory]
-            cache.sync()
+        return RoleFactory(repository).clear()
 
     def __init__(self, name, meta, repository):
         """
@@ -40,6 +23,7 @@ class Role:
         """
         self.repo = repository
         self.name = name
+        self.factory = RoleFactory(repository)
 
         self.__meta = meta
         if 'dork' not in self.__meta:
@@ -106,7 +90,7 @@ class Role:
         :type name:
         :rtype: bool
         """
-        return name in self.__dependencies or any([get_role(dep, self.repo).includes(name) for dep in self.__dependencies])
+        return name in self.__dependencies or any([self.factory.get(dep).includes(name) for dep in self.__dependencies])
 
     def triggers(self):
         """
@@ -115,7 +99,7 @@ class Role:
         """
         triggers = self.__triggers
         for dep in self.__dependencies:
-            role = get_role(dep, self.repo)
+            role = self.factory.get(dep)
             triggers.update(role.triggers())
         return triggers
 
@@ -134,7 +118,7 @@ class Role:
 
         triggers = self.__matched_triggers + self.__enabled_triggers
         for dep in self.__dependencies:
-            role = get_role(dep, self.repo)
+            role = self.factory.get(dep)
             triggers += role.active_triggers
         return list(set(triggers) - set(self.__disabled_triggers))
 
@@ -153,77 +137,79 @@ class Role:
                 for changed_file in changeset:
                     if fnmatch(changed_file, pattern):
                         tags += taglist
+
+        for dep in self.__dependencies:
+            role = self.factory.get(dep)
+            tags += role.update_triggers(changeset)
+
         return list(set(tags))
 
     @property
     def settings(self):
         settings = {}
         for dep in self.dependencies:
-            settings.update(get_role(dep, self.repo).settings)
+            settings.update(self.factory.get(dep).settings)
         if 'settings' in self.__meta['dork']:
             settings.update(self.__meta['dork']['settings'])
         return settings
 
 
-__roles = {}
 
-def get_role(name, repository, clear=False):
-    """
-    :type name: str
-    :type repository: Repository
-    :rtype: Role
-    """
-    directory = repository.directory
-    if directory in __roles and name in __roles[directory] and not clear:
-        return __roles[directory][name]
+class RoleFactory:
+    __roles = shelve.open(os.path.expanduser('~/.dork-roles.cache'), writeback=True)
 
-    __roles[directory] = {}
+    def __init__(self, repository):
+        self.__repo = repository
+        self.__dir = repository.directory
 
-    if not directory in __metadata:
-        get_roles_metadata(repository, clear=True)
+    def clear(self):
+        if self.__dir in RoleFactory.__roles:
+            del RoleFactory.__roles[self.__dir]
+            RoleFactory.__roles.sync()
 
-    if name not in __metadata[directory]:
-        return None
+    def list(self):
+        if self.__dir not in RoleFactory.__roles:
+            roles = {}
 
-    if not directory in __roles:
-        __roles[directory] = {}
+            role_directories = config.config.ansible_roles_path
+            project_role_path = self.__dir + '/.dork'
+            if os.path.isdir(project_role_path):
+                role_directories.append(project_role_path)
 
-    __roles[directory][name] = Role(name, __metadata[directory][name], repository)
+            for roles_dir in role_directories:
+                for role in os.listdir(roles_dir):
+                    meta_file = "%s/%s/meta/main.yml" % (roles_dir, role)
 
-    return __roles[directory][name]
+                    # Skip if name starts with a . or meta file doesn't exist.
+                    if role.startswith('.') or not os.path.isfile(meta_file):
+                        continue
+                    meta = yaml.load(open(meta_file, 'r'))
+                    if roles_dir == project_role_path:
+                        if 'dork' not in meta:
+                            meta['dork'] = {}
+                        if 'build_triggers' not in meta['dork']:
+                            meta['dork']['build_triggers'] = {}
+                        meta['dork']['build_triggers']['global'] = True
+                    # Write metadata back into the cache
+                    roles[role] = Role(role, meta, repository=self.__repo)
+            RoleFactory.__roles[self.__dir] = roles
+            RoleFactory.__roles.sync()
+        return RoleFactory.__roles[self.__dir]
 
+    def get(self, name):
+        roles = self.list()
+        if name in roles:
+            return roles[name]
 
-__metadata = {}
+    def tree(self):
+        matching_roles = []
+        for name, role in self.list().iteritems():
+            if role.triggered:
+                matching_roles.append(role)
 
-def get_roles_metadata(repository, clear=False):
-    """
-    :rtype: dict[str, dict]
-    """
-    directory = repository.directory
-    if directory in __metadata and not clear:
-        return __metadata[directory]
+        included_roles = []
+        for role in matching_roles:
+            if any([r.includes(role.name) for r in matching_roles]):
+                included_roles.append(role.name)
 
-    __metadata[directory] = {}
-    role_directories = config.config.ansible_roles_path
-    project_role_path = repository.directory + '/.dork'
-    if os.path.isdir(project_role_path):
-        role_directories.append(project_role_path)
-
-    for roles_dir in role_directories:
-        for role in os.listdir(roles_dir):
-            meta_file = "%s/%s/meta/main.yml" % (roles_dir, role)
-
-            # Skip if name starts with a . or meta file doesn't exist.
-            if role.startswith('.') or not os.path.isfile(meta_file):
-                continue
-            meta = yaml.load(open(meta_file, 'r'))
-            if roles_dir == project_role_path:
-                if 'dork' not in meta:
-                    meta['dork'] = {}
-                if 'build_triggers' not in meta['dork']:
-                    meta['dork']['build_triggers'] = {}
-                meta['dork']['build_triggers']['global'] = True
-            # Write metadata back into the cache
-            __metadata[directory][role] = meta
-
-    return __metadata[directory]
+        return [r for r in matching_roles if r.name not in included_roles]
