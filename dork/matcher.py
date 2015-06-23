@@ -131,7 +131,7 @@ class Role:
         # skip if there are no tags patterns defined
         tags = []
         if 'update_triggers' not in self.__meta['dork']:
-            return []
+            self.__meta['dork']['update_triggers'] = []
         for tagpattern in self.__meta['dork']['update_triggers']:
             for pattern, taglist in tagpattern.iteritems():
                 for changed_file in changeset:
