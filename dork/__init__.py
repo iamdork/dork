@@ -6,6 +6,7 @@ from dork import Dork, Mode, State, Status
 from git import Commit
 import json
 
+
 def main():
     """Dork CLI interface"""
     parser = argparse.ArgumentParser(
