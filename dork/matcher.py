@@ -156,19 +156,18 @@ class Role:
 
 
 class RoleFactory:
+    __roles = {}
 
     def __init__(self, repository):
-        self.__roles = shelve.open(os.path.expanduser('~/.dork-roles.cache'), writeback=True)
         self.__repo = repository
         self.__dir = repository.directory
 
     def clear(self):
-        if self.__dir in self.__roles:
-            del self.__roles[self.__dir]
-            self.__roles.sync()
+        if self.__dir in RoleFactory.__roles:
+            del RoleFactory.__roles[self.__dir]
 
     def list(self):
-        if self.__dir not in self.__roles:
+        if self.__dir not in RoleFactory.__roles:
             roles = {}
 
             role_directories = config.config.ansible_roles_path
@@ -192,9 +191,8 @@ class RoleFactory:
                         meta['dork']['build_triggers']['global'] = True
                     # Write metadata back into the cache
                     roles[role] = Role(role, meta, repository=self.__repo)
-            self.__roles[self.__dir] = roles
-            self.__roles.sync()
-        return self.__roles[self.__dir]
+            RoleFactory.__roles[self.__dir] = roles
+        return RoleFactory.__roles[self.__dir]
 
     def get(self, name):
         roles = self.list()

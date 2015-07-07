@@ -3,21 +3,28 @@ from glob2 import glob, Globber
 import os
 import re
 
-def _listdir(path):
+def _git_globber_listdir(path):
     if os.path.exists(path + '/.git'):
         return []
     else:
         return os.listdir(path)
 
-def _islink(path):
+def _git_globber_islink(path):
     return os.path.islink(path) and not os.path.isdir(path)
 
 class GitGlobber(Globber):
-    listdir = staticmethod(_listdir)
-    islink = staticmethod(_islink)
-
+    listdir = staticmethod(_git_globber_listdir)
+    islink = staticmethod(_git_globber_islink)
 
 git_globber = GitGlobber()
+
+def _gitless_globber_listdir(path):
+    return [d for d in os.listdir(path) if not d.endswith('.git')]
+
+class GitlessGlobber(Globber):
+    listdir = staticmethod(_gitless_globber_listdir)
+
+gitless_globber = GitlessGlobber()
 
 def get_repositories(directory):
     """
@@ -159,7 +166,7 @@ class Repository:
         """
         if contentpattern:
             f = "%s/%s" % (self.directory, filepattern)
-            matched_files = glob(f) if '*' in f else [f]
+            matched_files = gitless_globber.glob(f) if '*' in f else [f]
             expr = re.compile(contentpattern)
             for f in matched_files:
                 with open(f) as fp:
@@ -169,7 +176,7 @@ class Repository:
         else:
             f = "%s/%s" % (self.directory, filepattern)
             if '*' in filepattern:
-                return len(glob(f)) > 0
+                return len(gitless_globber.glob(f)) > 0
             else:
                 return os.path.exists(f)
 
