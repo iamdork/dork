@@ -470,10 +470,6 @@ class Dork:
             self.err("Cannot update, container not running.")
             return False
 
-        if self.status == Status.CLEAN:
-            self.info("Container is clean, update not necessary.")
-            return True
-
         # Get current HEAD commit hash.
         current_hash = self.repository.current_commit.hash
 
