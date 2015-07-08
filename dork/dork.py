@@ -493,6 +493,10 @@ class Dork:
             Role.clear(self.repository)
             self.warn("Container is new, running full build.")
 
+        # If there are no tags, execute 'always' tags.
+        if not tags:
+            tags.append('always')
+
         # If there are any tags, run the update.
         if tags or self.status == Status.NEW:
             if self.__play(tags):
