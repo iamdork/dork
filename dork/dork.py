@@ -519,14 +519,13 @@ class Dork:
             self.container.start()
             dns.refresh()
 
-        if self.repository.branch == self.conf.root_branch and self.mode == Mode.WORKSTATION:
-            self.info('Branch %s updated. Committing new image.', self.conf.root_branch)
-            self.commit()
-        else:
-            self.debug('%s != %s or %s != %s. NOT committing new image.',
-                       self.conf.root_branch, self.repository.branch,
-                       self.mode, Mode.WORKSTATION)
-
+            if self.repository.branch == self.conf.root_branch and self.mode == Mode.WORKSTATION:
+                self.info('Branch %s updated. Committing new image.', self.conf.root_branch)
+                self.commit()
+            else:
+                self.debug('%s != %s or %s != %s. NOT committing new image.',
+                           self.conf.root_branch, self.repository.branch,
+                           self.mode, Mode.WORKSTATION)
 
         self.info("Update successful.")
         return True

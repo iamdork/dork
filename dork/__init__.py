@@ -264,6 +264,21 @@ def main():
 
     cmd_build.set_defaults(func=func_build, image=False)
     # ======================================================================
+    # commit command
+    # ======================================================================
+    cmd_commit = subparsers.add_parser(
+        'stop',
+        help="""
+        Commit an image with the current state.
+        """)
+
+    def func_commit(params):
+        for d in Dork.scan(os.path.abspath(params.directory)):
+            if not d.commit():
+                return -1
+
+    cmd_commit.set_defaults(func=func_commit)
+    # ======================================================================
     # stop command
     # ======================================================================
     cmd_stop = subparsers.add_parser(
