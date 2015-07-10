@@ -490,7 +490,7 @@ class Dork:
             self.warn("Container is new, running full build.")
 
         # If there are no tags, execute 'always' tags.
-        if not tags:
+        if not tags and self.status != Status.NEW:
             tags.append('always')
 
         # If there are any tags, run the update.

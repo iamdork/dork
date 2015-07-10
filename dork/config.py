@@ -155,12 +155,7 @@ class ProjectConfig(Config):
         for role in Role.tree(repository):
             self.__settings.update(role.settings)
 
-
     def get_value(self, key, default):
-        # Override from project section, if it exists.
-        if key in self.__settings:
-            return self.__settings[key]
-
         section = "project:%s" % self.project
         if section in self.parser.sections():
             try:
@@ -168,6 +163,9 @@ class ProjectConfig(Config):
             except NoOptionError:
                 return Config.get_value(self, key, default)
         else:
+            # Override from project section, if it exists.
+            if key in self.__settings:
+                return self.__settings[key]
             return Config.get_value(self, key, default)
 
     # ======================================================================
