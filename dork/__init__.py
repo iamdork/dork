@@ -267,7 +267,7 @@ def main():
     # commit command
     # ======================================================================
     cmd_commit = subparsers.add_parser(
-        'stop',
+        'commit',
         help="""
         Commit an image with the current state.
         """)
