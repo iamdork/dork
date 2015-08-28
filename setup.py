@@ -30,6 +30,7 @@ setup(
 
     # The project's main homepage.
     url='https://github.com/iamdork/dork',
+    download_url='https://github.com/iamdork/dork/tarball/0.1',
 
     # Author details
     author='Philipp Melab',
