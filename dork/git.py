@@ -169,6 +169,8 @@ class Repository:
             matched_files = gitless_globber.glob(f) if '*' in f else [f]
             expr = re.compile(contentpattern)
             for f in matched_files:
+                if not os.path.isfile(f):
+                    continue
                 with open(f) as fp:
                     if expr.search(fp.read()):
                         return True
