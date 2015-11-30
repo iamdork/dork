@@ -249,16 +249,32 @@ def main():
         Runs the full build procedure.
         """)
 
-    # Repository argument
+    # Base image
     cmd_build.add_argument(
         '--image', '-i',
         help="""
         Use a different image to start from.
         """)
 
+    # Tags to execute
+    cmd_build.add_argument(
+        '--tags',
+        help="""
+        Provide a list of ansible tags to execute.
+        """)
+
+    # Skip tags
+    cmd_build.add_argument(
+        '--skip-tags',
+        help="""
+        Provide a list of ansible tags to skip.
+        """)
+
     def func_build(params):
+        tags = params.tags.split(' ') if params.tags else []
+        skip_tags = params.skip_tags.split(' ') if params.skip_tags else []
         for d in Dork.scan(os.path.abspath(params.directory)):
-            if not d.build():
+            if not (d.create() and d.start() and d.build(tags, skip_tags)):
                 return -1
 
 

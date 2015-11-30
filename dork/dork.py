@@ -530,7 +530,7 @@ class Dork:
         self.info("Update successful.")
         return True
 
-    def build(self):
+    def build(self, tags=None, skip_tags=None):
         """
         Run all necessary build instructions for this dork.
 
@@ -547,11 +547,7 @@ class Dork:
             self.err("Cannot build, container not running.")
             return False
 
-        if not self.status == Status.CLEAN:
-            self.err("Cannot build, dork has to be updated first.")
-            return False
-
-        self.__play()
+        self.__play(tags, skip_tags)
         self.debug("Build successful.")
         return True
 
@@ -559,14 +555,14 @@ class Dork:
     def variables(self):
         return self.conf.variables()
 
-    def __play(self, tags=None):
+    def __play(self, tags=None, skip_tags=None):
         # Retrieve extra variables from configuration.
         extra_vars = self.variables
         self.debug("Variables: %s", extra_vars)
 
         # Iterate over matching roles and build a list of tags that have NOT
         # been matched, to be used as list of exclude tags.
-        skip_tags = self.disabled_triggers
+        skip_tags = self.disabled_triggers + skip_tags if skip_tags else self.disabled_triggers
         self.debug("Skipping tags: %s", skip_tags)
 
         return runner.apply_roles(

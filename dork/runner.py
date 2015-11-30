@@ -5,6 +5,7 @@ import json
 from git import Repository
 from config import config
 
+
 def apply_roles(roles, ip, repository, extra_vars=None, tags=None, skip=None):
     """
     :type roles: list[str]
