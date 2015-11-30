@@ -26,7 +26,7 @@ def apply_roles(roles, ip, repository, extra_vars=None, tags=None, skip=None):
     playbook = tempfile.NamedTemporaryFile(delete=False)
     pblines = ['- hosts: all', '  roles:']
     for role in roles:
-        pblines.append('  - %s' % role)
+        pblines.append('  - { role: %s, tags:[\'%s\'] }' % (role, role))
     playbook.write('\n'.join(pblines) + '\n')
     playbook.close()
 
