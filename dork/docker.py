@@ -392,7 +392,7 @@ def _container_execute(id, command):
 
 
 def _image_remove(iid):
-    __delete('images/%s' % iid, codes=(200,))
+    __delete('images/%s' % iid, codes=(200, 409))
     images(True)
 
 

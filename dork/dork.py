@@ -340,7 +340,7 @@ class Dork:
                 self.debug("No container found, building from %s", image)
             else:
                 # No starting point available. Building from base image.
-                if self.repository.branch == self.conf.root_branch:
+                if self.repository.branch in self.conf.root_branch:
                     base = self.conf.base_image
                     self.warn("No image or container, starting from %s", base)
                     image = BaseImage(self.project, base)
@@ -519,8 +519,8 @@ class Dork:
             self.container.start()
             dns.refresh()
 
-            if self.repository.branch == self.conf.root_branch and self.mode == Mode.WORKSTATION:
-                self.info('Branch %s updated. Committing new image.', self.conf.root_branch)
+            if self.repository.branch in self.conf.root_branch and self.mode == Mode.WORKSTATION:
+                self.info('Branch %s updated. Committing new image.', self.repository.branch)
                 self.commit()
             else:
                 self.debug('%s != %s or %s != %s. NOT committing new image.',
@@ -604,7 +604,7 @@ class Dork:
         for remove in removable_containers:
             self.debug("Removing: %s", remove)
             # Never remove the root branch container in server mode.
-            if remove.repository.branch == self.conf.root_branch and self.mode == Mode.SERVER:
+            if remove.repository.branch in self.conf.root_branch and self.mode == Mode.SERVER:
                 continue
 
             # Remove the container.

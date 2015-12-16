@@ -183,9 +183,9 @@ class ProjectConfig(Config):
     def root_branch(self):
         """
         The branch considered as "stable".
-        :rtype: str
+        :rtype: list[str]
         """
-        return self.get_value('root_branch', 'master')
+        return self.get_value('root_branch', ['master', 'develop'])
 
     @property
     def base_image(self):
@@ -195,7 +195,7 @@ class ProjectConfig(Config):
 
         :rtype: str
         """
-        return self.get_value('base_image', 'dork/container')
+        return self.get_value('base_image', 'iamdork/container')
 
     def variables(self):
         """
