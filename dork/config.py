@@ -70,6 +70,15 @@ class Config:
         return self.get_value('host_log_directory', '/var/log/dork')
 
     @property
+    def host_data_directory(self):
+        """
+        Mounted volume, shared between all containers of one project.
+
+        :rtype: str
+        """
+        return self.get_value('host_data_directory', '/var/data')
+
+    @property
     def dork_source_directory(self):
         """
         Returns the directory containing the project source inside a
@@ -98,6 +107,16 @@ class Config:
         :rtype: str
         """
         return self.get_value('dork_log_directory', '/var/log/dork')
+
+    @property
+    def dork_data_directory(self):
+        """
+        Returns the directory containing the logs inside a
+        container.
+
+        :rtype: str
+        """
+        return self.get_value('dork_data_directory', '/var/data')
 
     @property
     def docker_address(self):

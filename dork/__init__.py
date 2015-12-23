@@ -295,6 +295,21 @@ def main():
 
     cmd_commit.set_defaults(func=func_commit)
     # ======================================================================
+    # squash command
+    # ======================================================================
+    cmd_squash = subparsers.add_parser(
+        'squash',
+        help="""
+        Reduce a container to a single layer.
+        """)
+
+    def func_squash(params):
+        for d in Dork.scan(os.path.abspath(params.directory)):
+            if not d.squash():
+                return -1
+
+    cmd_squash.set_defaults(func=func_squash)
+    # ======================================================================
     # stop command
     # ======================================================================
     cmd_stop = subparsers.add_parser(

@@ -2,6 +2,7 @@ from config import ProjectConfig, config
 from git import Repository, Commit
 from docker import Container, Image, BaseImage, DockerException
 from matcher import Role
+import docker
 import dns
 import runner
 import logging
@@ -11,6 +12,7 @@ import subprocess
 import colorclass
 import time
 import os
+import tempfile
 
 
 class State(Enum):
@@ -361,16 +363,23 @@ class Dork:
             self.project,
             self.instance
         )
+
         host_log_dir = "%s/%s/%s" % (
             self.conf.host_log_directory,
             self.project,
             self.instance
         )
 
+        host_data_dir = "%s/%s" % (
+            self.conf.host_data_directory,
+            self.project
+        )
+
         container_volumes = {
             host_src_dir: self.conf.dork_source_directory,
             host_bld_dir: self.conf.dork_build_directory,
             host_log_dir: self.conf.dork_log_directory,
+            host_data_dir: self.conf.dork_data_directory,
         }
 
         # Create the container
@@ -519,9 +528,13 @@ class Dork:
             self.container.start()
             dns.refresh()
 
-            if self.repository.branch in self.conf.root_branch and self.mode == Mode.WORKSTATION:
-                self.info('Branch %s updated. Committing new image.', self.repository.branch)
-                self.commit()
+            if self.repository.branch in self.conf.root_branch:
+                if self.mode == Mode.SERVER:
+                    self.info('Branch %s updated. Squashing container.', self.repository.branch)
+                    self.squash()
+                if self.mode == Mode.WORKSTATION:
+                    self.info('Branch %s updated. Committing container.', self.repository.branch)
+                    self.commit()
             else:
                 self.debug('%s != %s or %s != %s. NOT committing new image.',
                            self.conf.root_branch, self.repository.branch,
@@ -678,7 +691,7 @@ class Dork:
     def remove(self):
         """
         Remove all containers associated with this dork. If in workstation
-        mode, all images will be removed tooo.
+        mode, all images will be removed too.
 
         :return: [True] if the removal was successfull.
         :rtype: bool
@@ -712,6 +725,39 @@ class Dork:
             self.debug("Removed %s.", i.id)
 
         self.info("Removed %s dangling images.", dangling_count)
+        return True
+
+    def squash(self):
+        """
+        Export and re-import to the current image name. Effectively
+        removing all image layers
+
+        :return: [True] if squashing was successfull.
+        :rtype: bool
+        """
+        self.debug("Squashing containers.")
+        container = self.container
+
+        if not container:
+            self.err('Unable to squash, no container found.')
+            return False
+
+        if self.status == Status.DIRTY:
+            self.err('Can not squash dirty container. Please update first.')
+            return False
+
+        temp = tempfile.NamedTemporaryFile(delete=False)
+        container.export(temp.name)
+        self.info('Container exported. Stopping and removing current container.')
+        self.stop()
+        self.remove()
+        self.clean()
+        self.info('Importing new image %s/%s' % (self.project, self.repository.current_commit.hash))
+        Image.fromFile(temp.name, "%s/%s" % (self.project, self.repository.current_commit.hash))
+        os.unlink(temp.name)
+        self.info('Restarting container from new image.')
+        self.create()
+        self.start()
         return True
 
     # ======================================================================

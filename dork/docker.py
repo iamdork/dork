@@ -6,11 +6,12 @@ import requests
 from paramiko import SSHClient, AutoAddPolicy
 from git import Repository
 from config import config
-from subprocess import check_output
+from subprocess import check_output, call
 from datetime import datetime
 from dateutil.parser import parse as parse_date
 import socket
 import json
+import os
 
 
 class Container:
@@ -34,6 +35,12 @@ class Container:
     @classmethod
     def create(cls, name, image, volumes, hostname):
         return create(name, image, volumes, hostname)
+
+    def export(self, filename):
+        """
+        Export container to a file.
+        """
+        call('docker export %s > %s' % (self.id, filename), shell=True, stdout=open(os.devnull, 'w'))
 
     @property
     def id(self):
@@ -239,6 +246,11 @@ class Image:
         return images()
 
     @classmethod
+    def fromFile(cls, file, name):
+        call('cat %s | docker import - %s' % (file, name), shell=True, stdout=open(os.devnull, 'w'))
+        images(True)
+
+    @classmethod
     def dangling(cls):
         return _dangling_images()
 
@@ -309,6 +321,7 @@ def create(name, image, volumes, hostname):
         'Hostname': hostname,
         'Image': image,
         'Volumes': {},
+        'Cmd': "/usr/bin/supervisord",
         'HostConfig': {
             'Binds': [],
         },
@@ -342,7 +355,9 @@ def _container_start(cid):
 
 
 def _container_stop(cid):
-    __post('containers/%s/stop' % cid, codes=(204, 304))
+    __post('containers/%s/stop' % cid, codes=(204, 304), query={
+
+    })
     containers(True)
 
 
