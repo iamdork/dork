@@ -529,12 +529,8 @@ class Dork:
             dns.refresh()
 
             if self.repository.branch in self.conf.root_branch:
-                if self.mode == Mode.SERVER:
-                    self.info('Branch %s updated. Squashing container.', self.repository.branch)
-                    self.squash()
-                if self.mode == Mode.WORKSTATION:
-                    self.info('Branch %s updated. Committing container.', self.repository.branch)
-                    self.commit()
+                self.info('Branch %s updated. Squashing container.', self.repository.branch)
+                self.squash()
             else:
                 self.debug('%s != %s or %s != %s. NOT committing new image.',
                            self.conf.root_branch, self.repository.branch,
