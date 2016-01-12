@@ -530,7 +530,7 @@ class Dork:
 
             if self.repository.branch in self.conf.root_branch:
                 self.info('Branch %s updated. Squashing container.', self.repository.branch)
-                self.squash()
+                self.commit()
             else:
                 self.debug('%s != %s or %s != %s. NOT committing new image.',
                            self.conf.root_branch, self.repository.branch,
