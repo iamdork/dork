@@ -576,7 +576,7 @@ class Dork:
 
         return runner.apply_roles(
             [name for name, role in self.roles.iteritems()],
-            self.container.address, self.repository,
+            self.container.domain, self.repository,
             extra_vars, tags, skip_tags) == 0
 
     def clean(self):
