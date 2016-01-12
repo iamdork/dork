@@ -2,7 +2,6 @@ import config
 from git import Repository
 import os
 import yaml
-import shelve
 from fnmatch import fnmatch
 
 class Role:

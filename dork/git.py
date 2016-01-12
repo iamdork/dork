@@ -2,6 +2,7 @@ from subprocess import call, check_output, PIPE
 from glob2 import glob, Globber
 import os
 import re
+import config
 
 def _git_globber_listdir(path):
     if os.path.exists(path + '/.git'):
@@ -118,6 +119,19 @@ class Commit:
 
 
 class Repository:
+    @property
+    def __segments(self):
+        return self.directory \
+            .replace(config.config.host_source_directory + '/', '') \
+            .split('/')
+
+    @property
+    def project(self):
+        return self.__segments[0]
+
+    @property
+    def instance(self):
+        return self.__segments[-1]
 
     def __init__(self, directory):
         """
@@ -162,10 +176,19 @@ class Repository:
         Optionally provide a regex the files content is matched against
         additionally.
 
+        :type filepattern: str
+        :type contentpattern: str
         :rtype: bool
         """
-        if contentpattern:
+        sp = re.compile('^source:/')
+        dp = re.compile('^data:/')
+        if sp.match(filepattern) or dp.match(filepattern):
+            data = '%s/%s' % (config.config.host_data_directory, self.project)
+            f = dp.sub(data, sp.sub(self.directory, filepattern))
+        else:
             f = "%s/%s" % (self.directory, filepattern)
+
+        if contentpattern:
             matched_files = gitless_globber.glob(f) if '*' in f else [f]
             expr = re.compile(contentpattern)
             for f in matched_files:
@@ -176,7 +199,6 @@ class Repository:
                         return True
             return False
         else:
-            f = "%s/%s" % (self.directory, filepattern)
             if '*' in filepattern:
                 return len(gitless_globber.glob(f)) > 0
             else:
