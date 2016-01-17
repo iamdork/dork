@@ -357,6 +357,38 @@ def main():
                     return -1
 
     cmd_boot.set_defaults(func=func_boot)
+    # ======================================================================
+    # dns command
+    # ======================================================================
+    cmd_dns = subparsers.add_parser(
+        'dns',
+        help="""
+        Start a dns service to resolve container domains.
+        """)
+
+    import services.dns
+
+    def func_dns(params):
+        services.dns.server(config.config)
+
+
+    cmd_dns.set_defaults(func=func_dns)
+    # ======================================================================
+    # proxy command
+    # ======================================================================
+    cmd_proxy = subparsers.add_parser(
+        'proxy',
+        help="""
+        Start a proxy service to access containers.
+        """)
+
+    import services.proxy
+
+    def func_proxy(params):
+        services.proxy.server(config.config)
+
+
+    cmd_proxy.set_defaults(func=func_proxy)
 
     # parse arguments and execute 'func'
     args = parser.parse_args()

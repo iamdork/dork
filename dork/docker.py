@@ -3,16 +3,51 @@ Simple API to docker.
 """
 
 import requests
-from paramiko import SSHClient, AutoAddPolicy
 from git import Repository
 from config import config
-from subprocess import check_output, call
+from subprocess import check_output, call, Popen, PIPE
 from datetime import datetime
 from dateutil.parser import parse as parse_date
-import socket
 import json
 import os
+import rx
+import re
+from rx import Observable
 
+
+def __eventstream():
+    process = Popen('docker events', stdout=PIPE, shell=True)
+    for line in iter(process.stdout.readline, ''):
+        yield line
+
+eventpattern = re.compile('(.*)? (.*):.*?([a-z]*)$')
+
+def __parseevent(line):
+    return {
+        'timestamp': eventpattern.match(line).group(1),
+        'id': eventpattern.match(line).group(2),
+        'event': eventpattern.match(line).group(3),
+    }
+
+def __event_object(event):
+    for c in containers(True):
+        if c.id == event['id']:
+            event['container'] = c
+    for i in images(True):
+        if i.id == event['id']:
+            event['image'] = i
+    return event
+
+def events():
+    """
+    :rtype: Observable
+    """
+    return (
+        rx.Observable
+        .from_iterable(__eventstream())
+        .map(__parseevent)
+        .map(__event_object)
+    )
 
 class Container:
     """
@@ -215,6 +250,9 @@ class Container:
         else:
             return parse_date(self.__data['State']['FinishedAt'])
 
+    def hostPort(self, port):
+        return self.__data['NetworkSettings']['Ports']['80/tcp'][0]['HostPort'] if '80/tcp' in self.__data['NetworkSettings']['Ports'] else None
+
     def start(self):
         _container_start(self.id)
 
@@ -297,8 +335,10 @@ __containers = None
 def containers(clear=False):
     global __containers
     if __containers is None or clear:
-        __containers = [Container(__get('containers/%s/json' % c['Id']))
-                          for c in __get('containers/json', query={'all': 1})]
+        __containers = []
+        for cid in check_output(['docker', 'ps', '-aq']).splitlines():
+            data = json.loads(check_output(['docker', 'inspect', cid]))
+            __containers.append(Container(data[0]))
     return __containers
 
 
@@ -307,34 +347,23 @@ def images(clear=False):
     global __images
     if __images is None or clear:
         __images = []
-        for i in __get('images/json'):
-            data = __get('images/%s/json' % i['Id'])
-            if 'RepoTags' in i:
-                data['RepoTags'] = i['RepoTags']
-                __images.append(Image(data))
+        for i in check_output(['docker', 'images', '-q']).splitlines():
+            data = json.loads(check_output(['docker', 'inspect', i]))
+            if (data[0]['RepoTags']):
+                __images.append(Image(data[0]))
     return __images
 
 
 def create(name, image, volumes, hostname):
     """:type volumes: dict"""
-    data = {
-        'Hostname': hostname,
-        'Image': image,
-        'Volumes': {},
-        'Cmd': "/usr/bin/supervisord",
-        'HostConfig': {
-            'Binds': [],
-        },
-    }
+    cmd = ['docker', 'create', '--name=%s' % name, '-h', hostname, '-P']
     for host in volumes:
-        container = volumes[host]
-        data['Volumes'][container] = {}
-        data['HostConfig']['Binds'].append("%s:%s" % (host, container))
-    __post(
-        'containers/create',
-        query={'name': name},
-        data=data,
-        codes=(201,))
+        cmd.append('-v')
+        cmd.append("%s:%s" % (host, volumes[host]))
+
+    cmd.append(image)
+    cmd.append('/usr/bin/supervisord')
+    check_output(cmd)
     containers(True)
 
 
@@ -343,71 +372,47 @@ def _dangling_images():
         'docker', 'images', '-q', '-f', 'dangling=true'
     ]).splitlines()
     for iid in image_ids:
-        yield Image(__get('images/%s/json' % iid))
+        yield Image(json.loads(check_output(['docker', 'inspect', iid])))
 
 
 # ======================================================================
 # PROTECTED METHODS
 # ======================================================================
 def _container_start(cid):
-    __post('containers/%s/start' % cid, codes=(204, 304))
+    check_output(['docker', 'start', cid])
     containers(True)
 
 
 def _container_stop(cid):
-    __post('containers/%s/stop' % cid, codes=(204, 304), query={
-
-    })
+    check_output(['docker', 'stop', cid])
     containers(True)
 
 
 def _container_remove(cid):
-    __delete('containers/%s' % cid, codes=(204,))
+    check_output(['docker', 'rm', cid])
     containers(True)
 
 
 def _container_rename(cid, name):
-    __post(
-        'containers/%s/rename' % cid,
-        query={'name': name}, codes=(204,))
+    check_output(['docker', 'rename', cid, name])
     containers(True)
 
 
 def _container_commit(cid, repo):
-    __post(
-        'commit',
-        query={'container': cid, 'repo': repo},
-        codes=(201,))
+    check_output(['docker', 'commit', cid, repo])
     images(True)
 
 
 def _container_accessible(address):
-    client = SSHClient()
-    client.load_system_host_keys()
-    client.set_missing_host_key_policy(AutoAddPolicy())
-    try:
-        client.connect(address, username='root', key_filename='/etc/dork-keys/key')
-        return True
-    except socket.error:
-        return False
+    return call(['ssh', '-F', os.path.expanduser('~/.ssh/config'), address, '/bin/true']) == 0
 
 def _container_execute(id, command):
-    execute = json.loads(__post('containers/%s/exec' % id, data= {
-        "AttachStdin": False,
-        "AttachStdout": True,
-        "AttachStderr": True,
-        "Tty": False,
-        "Cmd": command,
-    }, codes=(201,)))
-    return __post('exec/%s/start' % execute['Id'], data = {
-        "Detach": False,
-        "Tty": False,
-    }, codes=(200,))
+    check_output(['docker', 'exec', id, command])
 
 
 
 def _image_remove(iid):
-    __delete('images/%s' % iid, codes=(200, 409))
+    call(['docker', 'rmi', iid])
     images(True)
 
 

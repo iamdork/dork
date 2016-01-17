@@ -6,15 +6,18 @@ to other components.
 from ConfigParser import ConfigParser, NoOptionError
 from git import Repository
 from matcher import Role
+import os
 
 # Initialize the configuration parser.
 _parser = ConfigParser()
 _parser.read([
     '/vagrant/dork.ini',
     '/etc/dork/dork.ini',
-    '~/.dork.ini',
+    os.path.expanduser('~/.dork.ini'),
 ])
 
+def expand(var):
+    return os.path.expandvars(os.path.expanduser(var)) if isinstance(var, str) else var;
 
 class Config:
     def __init__(self):
@@ -24,14 +27,18 @@ class Config:
         # First try to set from global section
         if 'global' in self.parser.sections():
             try:
-                return self.parser.get('global', key)
+                return expand(self.parser.get('global', key))
             except NoOptionError:
-                return default
-        return default
+                return expand(default)
+        return expand(default)
 
     # ======================================================================
     # GLOBAL CONFIGURATION PROPERTIES
     # ======================================================================
+    @property
+    def ssh_private_key(self):
+        return self.get_value('ssh_private_key', '/etc/dork-keys/key')
+
     @property
     def ansible_roles_path(self):
         """

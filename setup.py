@@ -62,7 +62,7 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'ansible<2.0',
+        'ansible',
         'requests',
         'paramiko',
         'enum34',
@@ -70,6 +70,8 @@ setup(
         'terminaltables',
         'glob2',
         'colorclass',
+        'dnslib',
+        'quickproxy'
     ],
 
     # List additional groups of dependencies here (e.g. development

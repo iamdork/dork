@@ -212,7 +212,7 @@ def _is_repository(directory):
     :param directory:
     :return:
     """
-    return call(['git', 'rev-parse'], cwd=directory, stderr=PIPE, stdout=PIPE) is 0
+    return os.path.exists(directory + '/.git')
 
 
 def _current_commit(directory):
