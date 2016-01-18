@@ -71,7 +71,7 @@ setup(
         'glob2',
         'colorclass',
         'dnslib',
-        'quickproxy'
+        'mitmproxy'
     ],
 
     # List additional groups of dependencies here (e.g. development

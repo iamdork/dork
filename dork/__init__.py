@@ -390,6 +390,25 @@ def main():
 
     cmd_proxy.set_defaults(func=func_proxy)
 
+    # ======================================================================
+    # ssh command
+    # ======================================================================
+    cmd_ssh = subparsers.add_parser(
+        'ssh',
+        help="""
+        Open a secure shell to the container
+        """)
+
+    import subprocess
+
+    def func_ssh(params):
+        for d in Dork.scan(os.path.abspath(params.directory)):
+            if d.container and d.container.running:
+                subprocess.call('ssh %s' % d.container.address, shell=True)
+
+
+    cmd_ssh.set_defaults(func=func_ssh)
+
     # parse arguments and execute 'func'
     args = parser.parse_args()
     return args.func(args)

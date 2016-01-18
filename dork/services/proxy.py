@@ -1,13 +1,17 @@
 from ..docker import containers, events
-import quickproxy
 from urlparse import urlparse
 from ..config import config
+
+from libmproxy import controller, proxy
+from libmproxy.proxy.server import ProxyServer
+from libmproxy.proxy.config import ServerSpec, Address
+import threading
 
 registry = {}
 address = urlparse(config.docker_address).hostname
 
 
-def refresh():
+def refresh(*args):
     global registry
     registry = {}
     for container in containers(True):
@@ -15,16 +19,32 @@ def refresh():
             registry[container.domain] = container.hostPort(80)
 
 
-def resolve(req):
-    if req.host in registry:
-        req.headers['X-DORK-HOST'] = "%s:%s" % (req.host, registry[req.host])
-        req.host = address
-        req.port = registry[req.host]
-    return req
+class DorkMaster(controller.Master):
+    def __init__(self, server):
+        controller.Master.__init__(self, server)
+
+    def run(self):
+        try:
+            return controller.Master.run(self)
+        except KeyboardInterrupt:
+            self.shutdown()
+
+    def handle_request(self, flow):
+        global registry
+        host = flow.request.headers['host'].split(':')[0]
+        if host in registry:
+            flow.request.port = int(registry[host])
+            flow.request.headers['X-DORK-HOST'] = flow.request.headers['host']
+        flow.reply()
 
 
 def server(config):
     refresh()
-    proxy = quickproxy.run_proxy(8080, req_callback=resolve)
+    p = DorkMaster(ProxyServer(proxy.ProxyConfig(
+            port=8080,
+            mode='reverse',
+            upstream_server=ServerSpec('http', Address.wrap((address, 80))),
+    )))
+    threading.Thread(target=p.run).start()
     events().filter(lambda e: 'container' in e).filter(lambda e: e['event'] in ['start', 'stop']).subscribe(refresh)
 

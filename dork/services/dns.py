@@ -5,8 +5,8 @@ from __future__ import absolute_import, print_function
 
 from ..docker import Container, events
 
-from dnslib import RR, QTYPE, TXT, RCODE
-from dnslib.server import DNSServer, BaseResolver
+from dnslib import RR, QTYPE, TXT, RCODE, A, AAAA
+from dnslib.server import DNSServer, BaseResolver, DNSLogger
 from urlparse import urlparse
 from ..config import config
 
@@ -27,6 +27,7 @@ def __refresh(*args):
     for container in Container.list():
         if container.running:
             registry[container.domain] = '127.0.0.1'
+            registry[container.domain + '.host'] = container.address
 
 
 class DorkResolver(BaseResolver):
@@ -37,7 +38,12 @@ class DorkResolver(BaseResolver):
         global registry
 
         if domain in registry:
-            reply.add_answer(RR(qname, QTYPE.TXT, rdata=TXT(registry[domain])))
+            if request.q.qtype == QTYPE.A:
+                reply.add_answer(RR(qname, QTYPE.A, rdata=A(registry[domain])))
+            elif request.q.qtype == QTYPE.TXT:
+                reply.add_answer(RR(qname, QTYPE.TXT, rdata=TXT(registry[domain])))
+            else:
+                reply.header.rcode = RCODE.NXDOMAIN
         else:
             reply.header.rcode = RCODE.NXDOMAIN
 
@@ -53,7 +59,8 @@ def server(conf):
     dnsserver = DNSServer(
             resolver=DorkResolver(),
             address="127.0.0.1",
-            port=5354
+            port=5354,
+            logger=DNSLogger(log="-request,-reply,-truncated")
     )
     dnsserver.start_thread()
 
