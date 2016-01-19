@@ -308,36 +308,7 @@ class Dork:
             # Retrieve the closest image.
             image = self.image
 
-            # Retrieve the closest container.
-            container = self.__closest([
-                c for c in Container.list()
-                if c.project == self.project
-            ])
-            """:type: Container"""
-
-
-            if image and container:
-                # If both image and container exist, check if the container is newer
-                # and commit if necessary.
-                self.debug("Comparing %s with %s.", container, image)
-                commit_container = Commit(container.hash, self.repository)
-                commit_image = Commit(image.hash, self.repository)
-                if commit_image.hash == 'new' or commit_container > commit_image:
-                    image_name = "%s/%s" % (self.project, container.hash)
-                    self.debug("%s is newer than %s", container, image)
-                    self.info("Committing new image %s.", image_name)
-                    container.commit(image_name)
-                    image = self.image
-                else:
-                    self.debug("%s is older than %s.", container, image)
-                    self.debug("Reusing existing image.")
-            elif container:
-                # Only a compatible container exists, commit it to create an image.
-                self.info("No image found, committing %s.", container)
-                image_name = "%s/%s" % (self.project, container.hash)
-                container.commit(image_name)
-                image = self.image
-            elif image:
+            if image:
                 # Only an image exists, simply use it.
                 self.debug("No container found, building from %s", image)
             else:
