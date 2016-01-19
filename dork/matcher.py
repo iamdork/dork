@@ -113,9 +113,10 @@ class Role:
         :rtype: list[str]
         """
         if len(self.__matched_triggers) == 0:
-            return[]
+            triggers = []
+        else:
+            triggers = self.__matched_triggers + self.__enabled_triggers
 
-        triggers = self.__matched_triggers + self.__enabled_triggers
         for dep in self.__dependencies:
             role = self.factory.get(dep)
             triggers += role.active_triggers
