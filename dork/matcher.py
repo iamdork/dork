@@ -104,7 +104,7 @@ class Role:
 
     @property
     def triggered(self):
-        return len(self.active_triggers) > 0
+        return len(self.__matched_triggers) > 0
 
     @property
     def active_triggers(self):
