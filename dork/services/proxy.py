@@ -36,6 +36,7 @@ class DorkMaster(controller.Master):
             flow.request.port = int(registry[host])
             flow.request.headers['X-DORK-HOST'] = flow.request.headers['host']
             flow.request.headers['X-DORK-IP'] = '192.168.64.1'
+            flow.request.headers['X-DORK-PORT'] = bytes(registry[host])
         flow.reply()
 
 
