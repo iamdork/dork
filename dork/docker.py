@@ -29,8 +29,8 @@ class Container:
         return self.name
 
     @classmethod
-    def list(cls):
-        return containers()
+    def list(cls, clear=False):
+        return containers(clear)
 
     @classmethod
     def create(cls, name, image, volumes, hostname):
@@ -242,8 +242,8 @@ class Image:
         return self.name
 
     @classmethod
-    def list(cls):
-        return images()
+    def list(cls, clear=False):
+        return images(clear)
 
     @classmethod
     def fromFile(cls, file, name):

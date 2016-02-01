@@ -566,17 +566,17 @@ class Dork:
         # Select containers to operate on, based on current Mode.
         if self.mode == Mode.SERVER:
             self.info("Automatic server cleanup, using project scope.")
-            containers = [c for c in Container.list()
+            containers = [c for c in Container.list(True)
                           if c.project == self.project]
         else:
             self.info("Instance scope cleanup.")
-            containers = [c for c in Container.list()
+            containers = [c for c in Container.list(True)
                           if c.project == self.project
                           and c.instance == self.instance]
 
         # Add containers to removable that are ancestors of other ones.
         removable_containers = [c for c in containers
-                     if c.id != self.container.id
+                     if c and self.container and c.id != self.container.id
                      and self.__is_removable(c, containers)]
 
         # Remove containers. If in Server mode, remove source and build
