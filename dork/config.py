@@ -40,6 +40,10 @@ class Config:
         return self.get_value('ssh_private_key', '/etc/dork-keys/key')
 
     @property
+    def manage_dnsmasq(self):
+        return self.get_value('manage_dnsmasq', 'yes')
+
+    @property
     def ansible_roles_path(self):
         """
         A list of directories that are scanned for Ansible roles.

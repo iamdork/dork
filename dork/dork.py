@@ -2,6 +2,8 @@ from config import ProjectConfig, config
 from git import Repository, Commit
 from docker import Container, Image, BaseImage, DockerException
 from matcher import Role
+import docker
+import dns
 import runner
 import logging
 from enum import Enum
@@ -401,6 +403,7 @@ class Dork:
                 return False
             time.sleep(1)
 
+        dns.refresh()
         self.info("Successfully started container.")
         # Now, stop containers until limit is met.
         Dork.enforce_max_containers()
@@ -427,6 +430,7 @@ class Dork:
 
         # Stop the container
         self.container.stop()
+        dns.refresh()
         self.info("Successfully stopped container.")
         return True
 
@@ -493,6 +497,7 @@ class Dork:
             self.info("Restarting container.")
             self.container.stop()
             self.container.start()
+            dns.refresh()
 
             if self.repository.branch in self.conf.root_branch:
                 self.info('Branch %s updated. Squashing container.', self.repository.branch)
@@ -542,7 +547,7 @@ class Dork:
 
         return runner.apply_roles(
             [name for name, role in self.roles.iteritems()],
-            self.container.address, self.repository,
+            self.container.domain, self.repository,
             extra_vars, tags, skip_tags) == 0
 
     def clean(self):
