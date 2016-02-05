@@ -14,7 +14,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.2',
+    version='0.2.2',
 
     description='Docker and ansible based development containers.',
 
@@ -71,7 +71,8 @@ setup(
         'glob2',
         'colorclass',
         'dnslib',
-        'mitmproxy'
+        'mitmproxy',
+        'rx'
     ],
 
     # List additional groups of dependencies here (e.g. development

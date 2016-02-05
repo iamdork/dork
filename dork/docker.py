@@ -20,7 +20,7 @@ def __eventstream():
     for line in iter(process.stdout.readline, ''):
         yield line
 
-eventpattern = re.compile('(.*)? (.*):.*?([a-z]*)$')
+eventpattern = re.compile('(.*?) (.*):.*?([a-z]*)$')
 
 def __parseevent(line):
     return {
@@ -372,7 +372,7 @@ def _dangling_images():
         'docker', 'images', '-q', '-f', 'dangling=true'
     ]).splitlines()
     for iid in image_ids:
-        yield Image(json.loads(check_output(['docker', 'inspect', iid])))
+        yield Image(json.loads(check_output(['docker', 'inspect', iid]))[0])
 
 
 # ======================================================================
