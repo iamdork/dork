@@ -6,10 +6,10 @@ from git import Repository
 from config import config
 
 
-def apply_roles(roles, ip, repository, extra_vars=None, tags=None, skip=None):
+def apply_roles(roles, host, repository, extra_vars=None, tags=None, skip=None):
     """
     :type roles: list[str]
-    :type ip: str
+    :type host: str
     :type repository: Repository
     :type extra_vars: dict
     :type tags: list[str]
@@ -19,7 +19,10 @@ def apply_roles(roles, ip, repository, extra_vars=None, tags=None, skip=None):
     # TODO: inject repo path and add .dork directory
     # Create the temporary inventory
     inventory = tempfile.NamedTemporaryFile(delete=False)
-    inventory.write("%s ansible_ssh_user=root" % ip + '\n')
+    if config.docker_connect == 'yes':
+        inventory.write("%s ansible_connection=docker" % host + '\n')
+    else:
+        inventory.write("%s ansible_ssh_user=root" % host + '\n')
     inventory.close()
 
     # Create the temporary playbook

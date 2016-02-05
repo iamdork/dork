@@ -178,11 +178,15 @@ class RoleFactory:
             for roles_dir in role_directories:
                 for role in os.listdir(roles_dir):
                     meta_file = "%s/%s/meta/main.yml" % (roles_dir, role)
+                    dork_file = "%s/%s/meta/dork.yml" % (roles_dir, role)
 
                     # Skip if name starts with a . or meta file doesn't exist.
                     if role.startswith('.') or not os.path.isfile(meta_file):
                         continue
                     meta = yaml.load(open(meta_file, 'r'))
+
+                    if os.path.isfile(dork_file):
+                        meta['dork'] = yaml.load(open(dork_file, 'r'))
                     if roles_dir == project_role_path:
                         if 'dork' not in meta:
                             meta['dork'] = {}
