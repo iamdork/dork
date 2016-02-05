@@ -545,9 +545,10 @@ class Dork:
         skip_tags = self.disabled_triggers + skip_tags if skip_tags else self.disabled_triggers
         self.debug("Skipping tags: %s", skip_tags)
 
+        host = self.container.id if self.conf.docker_connect == 'yes' else self.container.address
         return runner.apply_roles(
             [name for name, role in self.roles.iteritems()],
-            self.container.domain, self.repository,
+            host, self.repository,
             extra_vars, tags, skip_tags) == 0
 
     def clean(self):

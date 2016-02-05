@@ -44,6 +44,10 @@ class Config:
         return self.get_value('manage_dnsmasq', 'yes')
 
     @property
+    def docker_connect(self):
+        return self.get_value('docker_connect', 'no')
+
+    @property
     def ansible_roles_path(self):
         """
         A list of directories that are scanned for Ansible roles.
