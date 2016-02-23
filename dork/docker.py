@@ -6,21 +6,24 @@ import requests
 from git import Repository
 from config import config
 from subprocess import check_output, call, Popen, PIPE
-from datetime import datetime
 from dateutil.parser import parse as parse_date
 import json
 import os
 import rx
+import rx.subjects
+import threading
 import re
 from rx import Observable
 
 
-def __eventstream():
+def __eventstream(stream, killsignal):
     process = Popen('docker events', stdout=PIPE, shell=True)
+    killsignal.subscribe(lambda v: process.kill())
     for line in iter(process.stdout.readline, ''):
-        yield line
+        stream.on_next(line)
 
 eventpattern = re.compile('(.*?) (.*):.*?([a-z]*)$')
+
 
 def __parseevent(line):
     return {
@@ -28,6 +31,7 @@ def __parseevent(line):
         'id': eventpattern.match(line).group(2),
         'event': eventpattern.match(line).group(3),
     }
+
 
 def __event_object(event):
     for c in containers(True):
@@ -38,16 +42,21 @@ def __event_object(event):
             event['image'] = i
     return event
 
-def events():
+
+_docker_events = None
+
+
+def events(killsignal):
     """
     :rtype: Observable
     """
-    return (
-        rx.Observable
-        .from_iterable(__eventstream())
-        .map(__parseevent)
-        .map(__event_object)
-    )
+    global _docker_events
+    if not _docker_events:
+        _docker_events = rx.subjects.Subject()
+        thread = threading.Thread(target=__eventstream, args=(_docker_events, killsignal))
+        thread.start()
+    return _docker_events.map(__parseevent).map(__event_object)
+
 
 class Container:
     """

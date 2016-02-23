@@ -11,8 +11,8 @@ import os
 # Initialize the configuration parser.
 _parser = ConfigParser()
 _parser.read([
-    '/vagrant/dork.ini',
     '/etc/dork/dork.ini',
+    os.path.curdir + '/dork.ini',
     os.path.expanduser('~/.dork.ini'),
 ])
 
@@ -140,7 +140,7 @@ class Config:
 
         :rtype: str
         """
-        return self.get_value('docker_address', 'http://127.0.0.1:2375')
+        return self.get_value('docker_address', '$DOCKER_HOST')
 
     @property
     def max_containers(self):

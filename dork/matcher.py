@@ -29,6 +29,7 @@ class Role:
             self.__meta['dork'] = {}
 
         self.__dependencies = []
+        self.__services = meta['dork']['services'] if 'services' in meta['dork'] else {}
 
         if 'dependencies' in self.__meta and isinstance(self.__meta['dependencies'], list):
             for dep in self.__meta['dependencies']:
@@ -36,7 +37,6 @@ class Role:
                     self.__dependencies.append(dep)
                 if isinstance(dep, dict) and 'role' in dep:
                     self.__dependencies.append(dep['role'])
-
 
         if 'build_triggers' in self.__meta['dork']:
             self.__triggers = self.__meta['dork']['build_triggers']
@@ -90,6 +90,18 @@ class Role:
         :rtype: bool
         """
         return name in self.__dependencies or any([self.factory.get(dep).includes(name) for dep in self.__dependencies])
+
+    @property
+    def services(self):
+        """
+        Recursively get all fixed ports.
+        :return: dict
+        """
+        ports = {}
+        for dep in self.__dependencies:
+            ports.update(self.factory.get(dep).services)
+        ports.update(self.__services)
+        return ports
 
     def triggers(self):
         """

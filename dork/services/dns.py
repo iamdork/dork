@@ -9,6 +9,7 @@ from dnslib import RR, QTYPE, TXT, RCODE, A, AAAA
 from dnslib.server import DNSServer, BaseResolver, DNSLogger
 from urlparse import urlparse
 from ..config import config
+import threading
 
 """
 Dynamic host file management.
@@ -24,7 +25,7 @@ def __resolve(domain):
 def __refresh(*args):
     global registry
     registry = {}
-    for container in Container.list():
+    for container in Container.list(True):
         if container.running:
             registry[container.domain] = '127.0.0.1'
             registry[container.domain + '.host'] = container.address
@@ -54,7 +55,7 @@ def __filter_container(event):
     return 'container' in event
 
 
-def server(conf):
+def server(conf, eventstream, killsignal):
     __refresh()
     dnsserver = DNSServer(
             resolver=DorkResolver(),
@@ -62,11 +63,14 @@ def server(conf):
             port=5354,
             logger=DNSLogger(log="-request,-reply,-truncated")
     )
+
     dnsserver.start_thread()
+    killsignal.subscribe(lambda v: dnsserver.stop())
 
     try:
-        events().filter(lambda e: 'container' in e).filter(lambda e: e['event'] in ['start', 'stop']).subscribe(__refresh)
+        eventstream\
+            .filter(lambda e: 'container' in e)\
+            .filter(lambda e: e['event'] in ['start', 'stop'])\
+            .subscribe(__refresh)
     except Exception as exc:
-        pass
-    finally:
         dnsserver.stop()

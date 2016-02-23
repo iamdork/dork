@@ -2,7 +2,6 @@ from config import ProjectConfig, config
 from git import Repository, Commit
 from docker import Container, Image, BaseImage, DockerException
 from matcher import Role
-import docker
 import dns
 import runner
 import logging
@@ -396,7 +395,7 @@ class Dork:
         self.container.start()
 
         start = time.time()
-        while not self.container.accessible:
+        while self.conf.docker_connect != 'yes' and not self.container.accessible:
             self.debug('Container not accessible, retrying.')
             if time.time() - start > self.conf.startup_timeout:
                 self.err("Could not connect to container.")
@@ -535,6 +534,47 @@ class Dork:
     def variables(self):
         return self.conf.variables()
 
+    @property
+    def services(self):
+        services = {}
+        for name, role in self.roles.iteritems():
+            services.update(role.services)
+
+        reverse_map = {}
+        for service, port in services.iteritems():
+            if port not in reverse_map:
+                reverse_map[port] = [service]
+            else:
+                reverse_map[port].append(service)
+        return reverse_map
+
+    @property
+    def ports(self):
+        services = {}
+        for name, role in self.roles.iteritems():
+            services.update(role.services)
+
+        reverse_map = {}
+        for service, port in services.iteritems():
+            if port not in reverse_map:
+                reverse_map[port] = [service]
+            else:
+                reverse_map[port].append(service)
+
+        for p, s in reverse_map.iteritems():
+            if len(s) > 1:
+                for serv in s:
+                    services[serv] = Dork.assign_port(services)
+
+        return services
+
+    @staticmethod
+    def assign_port(services):
+        port = 1025
+        while port in services.values():
+            port += 1
+        return port
+
     def __play(self, tags=None, skip_tags=None):
         # Retrieve extra variables from configuration.
         extra_vars = self.variables
@@ -547,7 +587,7 @@ class Dork:
 
         host = self.container.id if self.conf.docker_connect == 'yes' else self.container.address
         return runner.apply_roles(
-            [name for name, role in self.roles.iteritems()],
+            [name for name, role in self.roles.iteritems()], self.services, self.ports,
             host, self.repository,
             extra_vars, tags, skip_tags) == 0
 

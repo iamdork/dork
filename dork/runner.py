@@ -6,7 +6,7 @@ from git import Repository
 from config import config
 
 
-def apply_roles(roles, host, repository, extra_vars=None, tags=None, skip=None):
+def apply_roles(roles, services, ports, host, repository, extra_vars=None, tags=None, skip=None):
     """
     :type roles: list[str]
     :type host: str
@@ -27,6 +27,10 @@ def apply_roles(roles, host, repository, extra_vars=None, tags=None, skip=None):
 
     # Create the temporary playbook
     playbook = tempfile.NamedTemporaryFile(delete=False)
+    if not extra_vars:
+        extra_vars = {}
+    extra_vars['dork_services'] = services
+    extra_vars['dork_ports'] = ports
     pblines = ['- hosts: all', '  roles:']
     for role in roles:
         pblines.append('  - { role: %s, tags:[\'%s\'] }' % (role, role))

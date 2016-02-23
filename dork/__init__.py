@@ -79,6 +79,12 @@ def main():
             data.append(['Instance', d.instance])
             data.append(['Roles', ', '.join([
                 name for name, role in d.roles.iteritems()])])
+
+            if d.ports:
+                data.append(['Services'])
+                for service, port in d.ports.iteritems():
+                    data.append(['  %s: %s' % (service, port)])
+
             data.append(['Variables', json.dumps(d.variables)])
             data.append(['Patterns', ', '.join(d.active_triggers)])
             data.append(['Skip tags', ', '.join(d.disabled_triggers)])
@@ -360,35 +366,33 @@ def main():
     # ======================================================================
     # dns command
     # ======================================================================
-    cmd_dns = subparsers.add_parser(
-        'dns',
+    cmd_serve = subparsers.add_parser(
+        'serve',
         help="""
-        Start a dns service to resolve container domains.
+        Serve a proxy and dns service.
         """)
 
-    import services.dns
 
-    def func_dns(params):
-        services.dns.server(config.config)
+    def func_serve(params):
+        import services.dns
+        import services.proxy
+        import signal
+        import rx.subjects
+        import docker
+        killsignal = rx.subjects.Subject()
 
+        def kill():
+            killsignal.on_next(True)
+            killsignal.on_completed()
+        signal.signal(signal.SIGTERM, kill)
 
-    cmd_dns.set_defaults(func=func_dns)
-    # ======================================================================
-    # proxy command
-    # ======================================================================
-    cmd_proxy = subparsers.add_parser(
-        'proxy',
-        help="""
-        Start a proxy service to access containers.
-        """)
+        eventstream = docker.events(killsignal)
 
-    import services.proxy
-
-    def func_proxy(params):
-        services.proxy.server(config.config)
+        services.dns.server(config.config, eventstream, killsignal)
+        services.proxy.server(config.config, eventstream, killsignal)
 
 
-    cmd_proxy.set_defaults(func=func_proxy)
+    cmd_serve.set_defaults(func=func_serve)
 
     # ======================================================================
     # ssh command

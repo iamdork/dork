@@ -40,13 +40,22 @@ class DorkMaster(controller.Master):
         flow.reply()
 
 
-def server(config):
+def server(config, eventstream, killsignal):
     refresh()
     p = DorkMaster(ProxyServer(proxy.ProxyConfig(
             port=8080,
             mode='reverse',
             upstream_server=ServerSpec('http', Address.wrap((address, 80))),
     )))
-    threading.Thread(target=p.run).start()
-    events().filter(lambda e: 'container' in e).filter(lambda e: e['event'] in ['start', 'stop']).subscribe(refresh)
+    thread = threading.Thread(target=p.run)
+    thread.start()
+    killsignal.subscribe(lambda v: p.shutdown())
+    try:
+        (eventstream
+            .filter(lambda e: 'container' in e)
+            .filter(lambda e: e['event'] in ['start', 'stop'])
+            .subscribe(refresh))
+    except Exception as exc:
+        p.shutdown()
+
 
