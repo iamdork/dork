@@ -562,7 +562,7 @@ class Dork:
                 reverse_map[port].append(service)
 
         for p, s in reverse_map.iteritems():
-            if len(s) > 1:
+            if len(s) > 1 or p == 80:
                 for serv in s:
                     services[serv] = Dork.assign_port(services)
 
